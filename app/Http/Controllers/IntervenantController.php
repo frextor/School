@@ -38,7 +38,10 @@ class IntervenantController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        return view('referentiel.intervenants.index', ['intervenants' => $intervenants]);
+        return view('referentiel.intervenants.index', [
+            'intervenants' => $intervenants,
+            'filtres' => $request->only('recherche'),
+        ]);
     }
 
     public function create(): View
