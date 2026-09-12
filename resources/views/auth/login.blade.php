@@ -4,9 +4,9 @@
 
 @section('content')
     @include('auth._login-card', [
-        'icon' => '🎓',
+        'iconName' => 'lock',
         'title' => 'Administration',
-        'subtitle' => config('app.name').' — espace de gestion',
+        'subtitle' => config('app.name').' — espace de gestion réservé aux administrateurs.',
         'action' => route('admin.login.attempt'),
         'usernameLabel' => 'Identifiant',
         'remember' => true,

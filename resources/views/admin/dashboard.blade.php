@@ -3,48 +3,105 @@
 @section('title', 'Tableau de bord')
 
 @section('content')
-    <h1>Bienvenue, {{ auth('admin')->user()->prenom }} 👋</h1>
-    <p style="color:var(--muted);margin-top:-0.75rem">Voici un accès rapide aux modules les plus utilisés.</p>
+@php
+    // Raccourcis regroupés par domaine (même contenu qu'avant, ordonné et teinté par section).
+    $sections = [
+        ['Élèves & candidats', 'indigo', [
+            ['eleves.index', 'users', 'Élèves', 'Fiches, profils, statuts'],
+            ['candidats.index', 'file', 'Candidats', 'Admissions et résultats'],
+            ['epreuves.index', 'calc', "Épreuves d'admission", 'Sessions et convocations'],
+        ]],
+        ['CRM', 'teal', [
+            ['contacts.index', 'contact', 'Contacts', 'Prospects et leads'],
+            ['entreprises.index', 'building', 'Entreprises', 'Partenaires, contacts pro'],
+            ['taches.index', 'check', 'Tâches / relances', 'Suivi commercial'],
+            ['import.index', 'inbox', 'Import contacts', 'Fichiers CSV'],
+        ]],
+        ['Pédagogie', 'amber', [
+            ['planning.index', 'cal', 'Planning', 'Créneaux de cours'],
+            ['referentiel.niveaux.index', 'book', 'Niveaux & cours', 'UE, cours, classes'],
+            ['referentiel.ref.index', 'clock', "Référentiel des heures", 'Volumes par niveau'],
+            ['referentiel.groupes.index', 'group', 'Groupes', 'Répartition des élèves'],
+        ]],
+        ['Notation & bulletins', 'rose', [
+            ['evaluations.index', 'pencil', 'Évaluations & notes', 'Saisie des notes'],
+            ['bulletin-v2.index', 'printer', 'Bulletins PDF', 'Génération et envoi'],
+            ['bulletins.index', 'file', 'Bulletins (décisions)', 'Jurys et mentions'],
+        ]],
+        ['Établissements & RH', 'violet', [
+            ['referentiel.intervenants.index', 'school', 'Intervenants', 'Fiches, compétences, cours'],
+            ['referentiel.etablissements.index', 'building', 'Établissements', 'Campus et sites'],
+            ['salles.index', 'door', 'Salles', 'Capacités, équipements'],
+        ]],
+        ['Administration', 'slate', [
+            ['admins.index', 'key', 'Administrateurs', 'Comptes et rôles'],
+            ['configuration.site', 'gear', 'Config. du site', 'Paramètres généraux'],
+            ['emails.index', 'mail', "Modèles d'emails", 'Contenus automatiques'],
+        ]],
+    ];
+    $portals = [
+        ['eleve.login', 'cap', 'Espace élève', 'Planning, notes, documents'],
+        ['intervenant.login', 'school', 'Espace intervenant', 'Classes, émargement, saisie'],
+        ['entreprise.login', 'building', 'Espace entreprise', 'Alternants, conventions'],
+    ];
+@endphp
 
-    <div class="dash-grid">
-        @foreach ([
-            ['route' => 'eleves.index', 'icon' => '🧑‍🎓', 'eyebrow' => 'Pédagogie', 'label' => 'Élèves', 'desc' => 'Fiches, profils, statuts'],
-            ['route' => 'candidats.index', 'icon' => '📝', 'eyebrow' => 'Pédagogie', 'label' => 'Candidats', 'desc' => 'Épreuves d\'admission, résultats'],
-            ['route' => 'planning.index', 'icon' => '📅', 'eyebrow' => 'Pédagogie', 'label' => 'Planning', 'desc' => 'Créneaux de cours'],
-            ['route' => 'contacts.index', 'icon' => '📇', 'eyebrow' => 'CRM', 'label' => 'Contacts', 'desc' => 'Prospects, leads'],
-            ['route' => 'entreprises.index', 'icon' => '🏢', 'eyebrow' => 'CRM', 'label' => 'Entreprises', 'desc' => 'Partenaires, contacts pro'],
-            ['route' => 'taches.index', 'icon' => '✅', 'eyebrow' => 'CRM', 'label' => 'Tâches / Relances', 'desc' => 'Suivi commercial'],
-            ['route' => 'evaluations.index', 'icon' => '✏️', 'eyebrow' => 'Notation', 'label' => 'Évaluations & notes', 'desc' => 'Saisie des notes'],
-            ['route' => 'bulletin-v2.index', 'icon' => '🖨️', 'eyebrow' => 'Notation', 'label' => 'Bulletins PDF', 'desc' => 'Génération de bulletins'],
-            ['route' => 'referentiel.niveaux.index', 'icon' => '📚', 'eyebrow' => 'Référentiel', 'label' => 'Niveaux & cours', 'desc' => 'UE, cours, classes'],
-            ['route' => 'referentiel.ref.index', 'icon' => '⏱️', 'eyebrow' => 'Référentiel', 'label' => 'Heures d\'enseignement', 'desc' => 'Volumes par niveau/classe'],
-            ['route' => 'referentiel.intervenants.index', 'icon' => '👩‍🏫', 'eyebrow' => 'RH', 'label' => 'Intervenants', 'desc' => 'Fiches, compétences, cours'],
-            ['route' => 'admins.index', 'icon' => '🔑', 'eyebrow' => 'Administration', 'label' => 'Administrateurs', 'desc' => 'Comptes et rôles'],
-        ] as $card)
-            <a href="{{ route($card['route']) }}" class="dash-box">
-                <span class="dash-icon">{{ $card['icon'] }}</span>
-                <span>
-                    <span class="dash-eyebrow">{{ $card['eyebrow'] }}</span>
-                    <span class="dash-label">{{ $card['label'] }}</span>
-                    <span class="dash-desc">{{ $card['desc'] }}</span>
+<div class="page-head">
+    <div>
+        <div class="eyebrow">Espace de gestion</div>
+        <h1>Bienvenue, {{ auth('admin')->user()->prenom }}</h1>
+        <p class="page-sub">Accès rapide aux modules, regroupés par domaine.</p>
+    </div>
+    <div class="page-actions">
+        @if (Route::has('exports.index'))
+            <a href="{{ route('exports.index') }}" class="btn btn-ghost">
+                @include('partials.icon', ['n' => 'download', 's' => 15, 'w' => 2])Exports
+            </a>
+        @endif
+        <a href="{{ route('eleves.create') }}" class="btn">
+            @include('partials.icon', ['n' => 'plus', 's' => 15, 'w' => 2.2])Nouvel élève
+        </a>
+    </div>
+</div>
+
+@foreach ($sections as [$title, $tint, $cards])
+    <section class="dash-section">
+        <div class="section-head">
+            <h2>{{ $title }}</h2>
+            <span class="rule"></span>
+            <span class="section-count">{{ count($cards) }} {{ count($cards) > 1 ? 'modules' : 'module' }}</span>
+        </div>
+        <div class="dash-grid">
+            @foreach ($cards as [$routeName, $ico, $label, $desc])
+                <a href="{{ route($routeName) }}" class="dash-box">
+                    <span class="dash-icon tint-{{ $tint }}">@include('partials.icon', ['n' => $ico, 's' => 18])</span>
+                    <span class="dash-text">
+                        <span class="dash-label">{{ $label }}</span>
+                        <span class="dash-desc">{{ $desc }}</span>
+                    </span>
+                    @include('partials.icon', ['n' => 'chevron-right', 's' => 15, 'c' => '#c9cdd9', 'w' => 2, 'style' => 'margin-left:auto'])
+                </a>
+            @endforeach
+        </div>
+    </section>
+@endforeach
+
+<section class="dash-section" style="margin-top:34px">
+    <div class="section-head">
+        <h2>Accès aux autres espaces</h2>
+        <span class="rule"></span>
+    </div>
+    <div class="dash-portals">
+        @foreach ($portals as [$routeName, $ico, $label, $desc])
+            <a href="{{ route($routeName) }}" class="dash-portal" target="_blank" rel="noopener">
+                <span class="portal-icon">@include('partials.icon', ['n' => $ico, 's' => 18, 'c' => '#4f46e5'])</span>
+                <span class="dash-text">
+                    <span class="dash-label">{{ $label }}</span>
+                    <span class="dash-desc">{{ $desc }}</span>
                 </span>
+                @include('partials.icon', ['n' => 'external', 's' => 14, 'c' => '#b9bdcc', 'w' => 2, 'style' => 'margin-left:auto'])
             </a>
         @endforeach
     </div>
-
-    <h2>Accès aux autres espaces</h2>
-    <div class="dash-portals">
-        <a href="{{ route('eleve.login') }}" class="dash-portal" target="_blank">
-            <span class="dash-portal-icon">🧑‍🎓</span>
-            <span class="dash-portal-label">Espace élève</span>
-        </a>
-        <a href="{{ route('intervenant.login') }}" class="dash-portal" target="_blank">
-            <span class="dash-portal-icon">👩‍🏫</span>
-            <span class="dash-portal-label">Espace intervenant</span>
-        </a>
-        <a href="{{ route('entreprise.login') }}" class="dash-portal" target="_blank">
-            <span class="dash-portal-icon">🤝</span>
-            <span class="dash-portal-label">Espace entreprise</span>
-        </a>
-    </div>
+</section>
 @endsection

@@ -4,7 +4,7 @@
 
 @section('content')
     @include('auth._login-card', [
-        'icon' => '👩‍🏫',
+        'iconName' => 'school',
         'title' => 'Espace intervenant',
         'subtitle' => config('app.name').' — planning, classes et récapitulatif d\'heures',
         'action' => route('intervenant.login.attempt'),

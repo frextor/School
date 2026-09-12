@@ -4,7 +4,7 @@
 
 @section('content')
     @include('auth._login-card', [
-        'icon' => '🧑‍🎓',
+        'iconName' => 'cap',
         'title' => 'Mon espace personnel',
         'subtitle' => config('app.name').' — planning, résultats et suivi de scolarité',
         'action' => route('eleve.login.attempt'),

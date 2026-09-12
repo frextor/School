@@ -1,46 +1,126 @@
-{{-- Partial de connexion partagé par les 4 guards (admin/intervenant/entreprise/élève).
-     Paramètres attendus via @include('auth._login-card', [...]) :
-     icon, title, subtitle, action, usernameLabel, remember (bool), footer (bloc HTML optionnel). --}}
-<div class="auth-icon">{{ $icon }}</div>
-<h1>{{ $title }}</h1>
-<p class="auth-subtitle">{{ $subtitle }}</p>
+{{-- Écran de connexion partagé par les 4 guards (admin/intervenant/entreprise/élève).
+     Paramètres via @include('auth._login-card', [...]) :
+     iconName (clé de partials.icon), title, subtitle, action, usernameLabel,
+     remember (bool), footer (bloc HTML optionnel), panelTitle, panelPoints (array). --}}
+@php
+    $panelTitle = $panelTitle ?? "L'administration de votre école, au même endroit.";
+    $panelPoints = $panelPoints ?? [
+        'Dossiers élèves et candidats centralisés',
+        'Saisie des notes et bulletins PDF',
+        'Espaces élève, intervenant et entreprise',
+    ];
+@endphp
 
-@if ($errors->any())
-    <div class="status error">
-        @foreach ($errors->all() as $error)
-            <span>{{ $error }}</span>
-        @endforeach
+<div class="auth-split">
+    <div class="auth-panel">
+        <div class="auth-panel-dots"></div>
+        <div class="auth-panel-glow"></div>
+
+        <div class="auth-panel-brand">
+            <span class="auth-panel-mark">@include('partials.icon', ['n' => 'cap', 's' => 18, 'c' => '#fff', 'w' => 2])</span>
+            <span>
+                <span class="auth-panel-name">{{ config('app.name') }}</span>
+                <span class="auth-panel-sub">School Tech</span>
+            </span>
+        </div>
+
+        <div class="auth-panel-body">
+            <h2>{{ $panelTitle }}</h2>
+            <p>Élèves, CRM, pédagogie, notation et bulletins — depuis un seul espace de gestion.</p>
+            <ul>
+                @foreach ($panelPoints as $point)
+                    <li>@include('partials.icon', ['n' => 'check', 's' => 15, 'c' => 'rgba(255,255,255,0.9)', 'w' => 2.2]){{ $point }}</li>
+                @endforeach
+            </ul>
+        </div>
+
+        <div class="auth-panel-foot">© {{ date('Y') }} {{ config('app.name') }} by School Tech</div>
     </div>
-@endif
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
+    <div class="auth-form-col">
+        <div class="auth-form-wrap">
+            <div class="auth-chip">
+                @include('partials.icon', ['n' => $iconName ?? 'lock', 's' => 12, 'w' => 2.2]){{ $title }}
+            </div>
 
-<form method="post" action="{{ $action }}">
-    @csrf
+            <h1>Connexion</h1>
+            <p class="auth-subtitle">{{ $subtitle }}</p>
 
-    <label for="username">{{ $usernameLabel }}</label>
-    <div class="input-icon">
-        <span class="ico">👤</span>
-        <input type="text" name="username" id="username" value="{{ old('username') }}" required autofocus autocomplete="username">
+            @if ($errors->any())
+                <div class="status error">
+                    @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+                    <span>@foreach ($errors->all() as $error){{ $error }} @endforeach</span>
+                </div>
+            @endif
+
+            @if (session('status'))
+                <div class="status">{{ session('status') }}</div>
+            @endif
+
+            <form method="post" action="{{ $action }}" class="auth-form">
+                @csrf
+
+                <div class="field">
+                    <label for="username">{{ $usernameLabel }}</label>
+                    <div class="input-icon">
+                        @include('partials.icon', ['n' => 'user', 's' => 16, 'c' => '#9aa0b0', 'style' => 'position:absolute;left:12px;top:11px'])
+                        <input type="text" name="username" id="username" value="{{ old('username') }}" required autofocus autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-head">
+                        <label for="password">Mot de passe</label>
+                        @if (Route::has('password.request'))
+                            <a href="{{ route('password.request') }}">Mot de passe oublié ?</a>
+                        @endif
+                    </div>
+                    <div class="input-icon">
+                        @include('partials.icon', ['n' => 'lock', 's' => 16, 'c' => '#9aa0b0', 'style' => 'position:absolute;left:12px;top:11px'])
+                        <input type="password" name="password" id="password" required autocomplete="current-password">
+                        <button type="button" class="reveal" data-reveal="password" aria-label="Afficher le mot de passe">
+                            @include('partials.icon', ['n' => 'eye', 's' => 16, 'c' => '#6b7280'])
+                        </button>
+                    </div>
+                </div>
+
+                @if ($remember ?? false)
+                    <label class="check"><input type="checkbox" name="remember" value="1"> Se souvenir de moi</label>
+                @endif
+
+                <button type="submit" class="btn btn-block">
+                    Se connecter @include('partials.icon', ['n' => 'arrow-right', 's' => 16, 'c' => '#fff', 'w' => 2.2])
+                </button>
+            </form>
+
+            @isset($footer)
+                {{ $footer }}
+            @endisset
+
+            @if (Route::has('eleve.login'))
+                <div class="auth-others">
+                    <div class="auth-others-title">Autres espaces</div>
+                    <div class="auth-others-links">
+                        <a href="{{ route('eleve.login') }}">@include('partials.icon', ['n' => 'cap', 's' => 14])Élève</a>
+                        <a href="{{ route('intervenant.login') }}">@include('partials.icon', ['n' => 'school', 's' => 14])Intervenant</a>
+                        <a href="{{ route('entreprise.login') }}">@include('partials.icon', ['n' => 'building', 's' => 14])Entreprise</a>
+                    </div>
+                </div>
+            @endif
+
+            <a href="{{ route('landing') }}" class="auth-back">
+                @include('partials.icon', ['n' => 'arrow-left', 's' => 14, 'w' => 2])Retour à l'accueil
+            </a>
+        </div>
     </div>
+</div>
 
-    <label for="password">Mot de passe</label>
-    <div class="input-icon">
-        <span class="ico">🔒</span>
-        <input type="password" name="password" id="password" required autocomplete="current-password">
-    </div>
-
-    @if ($remember ?? false)
-        <label><input type="checkbox" name="remember" value="1"> Se souvenir de moi</label>
-    @endif
-
-    <button type="submit" class="btn">Se connecter →</button>
-</form>
-
-@isset($footer)
-    {{ $footer }}
-@endisset
-
-<a href="{{ route('landing') }}" class="auth-back">← Retour à l'accueil</a>
+<script>
+    document.querySelectorAll('[data-reveal]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = document.getElementById(btn.dataset.reveal);
+            input.type = input.type === 'password' ? 'text' : 'password';
+            btn.classList.toggle('is-on');
+        });
+    });
+</script>

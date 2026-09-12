@@ -3,18 +3,23 @@
 @section('title', 'Devenir intervenant')
 
 @section('content')
+    {{-- Page publique (formulaire, pas un simple login) : la mise en page invité
+         du layout ne fournit plus de carte automatiquement (les écrans de connexion
+         gèrent désormais leur propre .auth-split), donc on enveloppe ici. --}}
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2.5rem 1.5rem;background:var(--bg)">
+    <div style="width:100%;max-width:640px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:2.25rem 2rem">
     <h1>Inscription intervenant</h1>
     <p style="color:var(--muted)">Créez votre compte de l'espace intervenant.</p>
 
     @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
+        <div class="status error">
             @foreach ($errors->all() as $error)
                 <p>{{ $error }}</p>
             @endforeach
         </div>
     @endif
 
-    <form method="post" action="{{ route('intervenant-inscription.store') }}" enctype="multipart/form-data">
+    <form method="post" action="{{ route('intervenant-inscription.store') }}" enctype="multipart/form-data" style="max-width:none">
         @csrf
 
         <label for="civilite">Civilité</label>
@@ -83,4 +88,7 @@
             <button type="submit" class="btn">Créer mon compte</button>
         </p>
     </form>
+    <a href="{{ route('landing') }}" class="auth-back">← Retour à l'accueil</a>
+    </div>
+    </div>
 @endsection
