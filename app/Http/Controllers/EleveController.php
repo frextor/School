@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Classe;
 use App\Models\Contact;
 use App\Models\Eleve;
+use App\Models\Etablissement;
 use App\Models\Niveau;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,30 +23,64 @@ class EleveController extends Controller
 {
     public function index(Request $request): View
     {
+        // Colonnes triables (écran "liste modernisée") : nom/campus/année passent par
+        // une jointure (relations Eloquent classiques insuffisantes pour trier).
+        $colonnesTriables = [
+            'nom' => 'amos_contacts.nom',
+            'id_eleve' => 'amos_eleves.id_eleve',
+            'campus' => 'amos_etablissement.nom_etablissement',
+            'niveau' => 'amos_niveaux.nom_niveau',
+            'annee' => 'amos_contacts.annee_rentree',
+            'profil' => 'amos_eleves.profil',
+            'visible' => 'amos_eleves.visible',
+        ];
+        $tri = $colonnesTriables[$request->string('tri')->toString()] ?? null;
+        $sens = $request->string('sens') === 'asc' ? 'asc' : 'desc';
+
         $eleves = Eleve::query()
-            ->with(['contact', 'niveau', 'classe'])
+            ->with(['contact', 'niveau', 'classe.etablissement'])
+            ->select('amos_eleves.*')
+            ->when($tri, function ($q) use ($tri) {
+                // Jointures nécessaires seulement si on trie dessus (évite les doublons/coût inutile sinon).
+                $q->leftJoin('amos_contacts', 'amos_contacts.id_contact', '=', 'amos_eleves.id_contact')
+                    ->leftJoin('amos_classe', 'amos_classe.id_classe', '=', 'amos_eleves.id_classe')
+                    ->leftJoin('amos_etablissement', 'amos_etablissement.id_etablissement', '=', 'amos_classe.id_etablissement')
+                    ->leftJoin('amos_niveaux', 'amos_niveaux.id_niveau', '=', 'amos_eleves.id_niveau');
+            })
             // Les "candidats" (profil = candidat) ont leur propre écran dédié
             // (CandidatController) — la liste des élèves ne doit jamais les
             // afficher, même si un filtre profil est demandé.
-            ->where('profil', '!=', Eleve::PROFIL_CANDIDAT)
-            ->when($request->filled('profil'), fn ($q) => $q->where('profil', $request->string('profil')))
+            ->where('amos_eleves.profil', '!=', Eleve::PROFIL_CANDIDAT)
+            ->when($request->filled('profil'), fn ($q) => $q->where('amos_eleves.profil', $request->string('profil')))
             ->when($request->filled('recherche'), function ($q) use ($request) {
                 $terme = $request->string('recherche');
                 $q->whereHas('contact', function ($q) use ($terme) {
                     $q->where('nom', 'like', "%{$terme}%")
-                        ->orWhere('prenom', 'like', "%{$terme}%");
+                        ->orWhere('prenom', 'like', "%{$terme}%")
+                        ->orWhere('email', 'like', "%{$terme}%")
+                        ->orWhere('telephone', 'like', "%{$terme}%");
                 });
             })
+            ->when($request->filled('campus'), fn ($q) => $q->whereHas('classe', fn ($q) => $q->where('id_etablissement', $request->integer('campus'))))
+            ->when($request->filled('niveau'), fn ($q) => $q->where('amos_eleves.id_niveau', $request->integer('niveau')))
+            ->when($request->filled('classe'), fn ($q) => $q->where('amos_eleves.id_classe', $request->integer('classe')))
+            ->when($request->filled('annee'), fn ($q) => $q->whereHas('contact', fn ($q) => $q->where('annee_rentree', $request->integer('annee'))))
             // Portage de `Archives.php::eleves()` : bascule liste active / archivée
-            // plutôt qu'un écran dupliqué (voir MIGRATION_PROGRESS.md).
-            ->where('visible', $request->boolean('archives'))
-            ->orderByDesc('id_eleve')
+            // plutôt qu'un écran dupliqué (voir MIGRATION_PROGRESS.md). Le filtre
+            // avancé "Visible" de l'écran modernisé recouvre la même colonne — on
+            // ne câble donc que ce bouton pour éviter que les deux ne se contredisent.
+            ->where('amos_eleves.visible', $request->boolean('archives'))
+            ->when($tri, fn ($q) => $q->orderBy($tri, $sens), fn ($q) => $q->orderByDesc('amos_eleves.id_eleve'))
             ->paginate(25)
             ->withQueryString();
 
         return view('eleves.index', [
             'eleves' => $eleves,
             'filtres' => $request->only(['profil', 'recherche', 'archives']),
+            'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
+            'niveaux' => Niveau::orderBy('nom_niveau')->get(),
+            'classes' => Classe::orderBy('classe')->get(),
+            'annees' => Contact::query()->whereNotNull('annee_rentree')->distinct()->orderByDesc('annee_rentree')->pluck('annee_rentree'),
         ]);
     }
 

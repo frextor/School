@@ -69,6 +69,18 @@ class Eleve extends Model
         return $this->belongsTo(Classe::class, 'id_classe', 'id_classe');
     }
 
+    /** Portage de l'affichage "campus" de la liste élèves : dérivé de la classe (amos_eleves n'a pas de colonne établissement propre). */
+    public function getEtablissementAttribute()
+    {
+        return $this->classe?->etablissement;
+    }
+
+    /** Année de formation affichée dans la liste : reprise de `annee_rentree` sur la fiche contact. */
+    public function getAnneeFormationAttribute()
+    {
+        return $this->contact?->annee_rentree;
+    }
+
     public function parent()
     {
         return $this->belongsTo(self::class, 'id_eleve_parent', 'id_eleve');
