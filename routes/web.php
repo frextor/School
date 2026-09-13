@@ -26,6 +26,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\HelvetiusExportController;
 use App\Http\Controllers\IntervenantController;
 use App\Http\Controllers\IntervenantInscriptionController;
+use App\Http\Controllers\DemoController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\ParametrageController;
 use App\Http\Controllers\ReferentielController;
@@ -70,6 +71,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::post('/demo', [DemoController::class, 'store'])->name('demo.store');
 
 // Authentification back-office (portage du controller Admin.php CI).
 Route::prefix('admin')->name('admin.')->group(function () {
