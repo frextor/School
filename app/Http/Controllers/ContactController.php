@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Portage de `Contacts.php` (CodeIgniter) — cœur du CRM (fiche contact).
@@ -34,23 +35,121 @@ use Illuminate\View\View;
  */
 class ContactController extends Controller
 {
-    public function index(Request $request): View
+    /** Portage réduit de `Crm.php::base()` : mêmes données (`amos_contacts`) que la fiche
+     *  contact simple, avec segments + filtres avancés + tri, plutôt que les ~25 filtres du
+     *  legacy (dont plusieurs liés à Mautic, exclu — voir MIGRATION_PROGRESS.md). */
+    public function index(Request $request): View|StreamedResponse
     {
-        $contacts = Contact::query()
-            ->with(['eleve', 'formation'])
+        // Colonnes triables : formation/origine/statut passent par jointure ou expression
+        // dérivée (même logique que celle affichée dans la vue) pour que le tri soit réel.
+        $origineSql = "CASE
+            WHEN EXISTS (SELECT 1 FROM amos_reunions_information_contacts ric WHERE ric.id_contact = amos_contacts.id_contact) THEN 'Réunion d''info'
+            WHEN amos_contacts.salon = 1 THEN 'Salon'
+            WHEN amos_contacts.agent_de_joueur = 1 THEN 'Partenaire'
+            ELSE 'Site web'
+        END";
+        $statutSql = "CASE amos_eleves.profil
+            WHEN 'eleve' THEN 'Élève' WHEN 'reinscrit' THEN 'Réinscrit' WHEN 'alumni' THEN 'Alumni'
+            WHEN 'abandon' THEN 'Abandon' WHEN 'candidat' THEN 'Candidat' ELSE 'Prospect'
+        END";
+        $colonnesTriables = [
+            'nom' => 'amos_contacts.nom',
+            'telephone' => 'amos_contacts.telephone',
+            'ville' => 'amos_contacts.ville',
+            'formation' => 'amos_formations.niveau',
+            'origine' => DB::raw($origineSql),
+            'statut' => DB::raw($statutSql),
+        ];
+        $tri = $colonnesTriables[$request->string('tri')->toString()] ?? null;
+        $sens = $request->string('sens') === 'asc' ? 'asc' : 'desc';
+
+        $segment = $request->string('segment')->toString() ?: 'tous';
+
+        $base = Contact::query()
+            ->select('amos_contacts.*')
+            ->leftJoin('amos_formations', 'amos_formations.id_formation', '=', 'amos_contacts.id_formation')
+            ->leftJoin('amos_eleves', 'amos_eleves.id_contact', '=', 'amos_contacts.id_contact')
+            ->with(['eleve', 'formation', 'ecoles', 'inscriptionsReunion.reunion'])
             ->when($request->filled('recherche'), function ($q) use ($request) {
                 $terme = $request->string('recherche');
-                $q->where('nom', 'like', "%{$terme}%")
-                    ->orWhere('prenom', 'like', "%{$terme}%")
-                    ->orWhere('email', 'like', "%{$terme}%");
+                $q->where(function ($q) use ($terme) {
+                    $q->where('amos_contacts.nom', 'like', "%{$terme}%")
+                        ->orWhere('amos_contacts.prenom', 'like', "%{$terme}%")
+                        ->orWhere('amos_contacts.email', 'like', "%{$terme}%")
+                        ->orWhere('amos_contacts.telephone', 'like', "%{$terme}%");
+                });
             })
-            ->when($request->boolean('agent_de_joueur'), fn ($q) => $q->where('agent_de_joueur', 1))
-            ->when($request->boolean('salon'), fn ($q) => $q->where('salon', 1))
-            ->orderByDesc('id_contact')
+            ->when($request->filled('id_formation'), fn ($q) => $q->where('amos_contacts.id_formation', $request->integer('id_formation')))
+            ->when($request->filled('etablissement'), fn ($q) => $q->whereHas('ecoles', fn ($q) => $q->where('etablissement', $request->string('etablissement'))))
+            ->when($request->filled('ville'), fn ($q) => $q->where('amos_contacts.ville', 'like', '%'.$request->string('ville').'%'))
+            ->when($request->filled('code_postal'), fn ($q) => $q->where('amos_contacts.code_postal', 'like', $request->string('code_postal').'%'))
+            ->when($request->filled('id_reunion_information'), fn ($q) => $q->whereHas('inscriptionsReunion', fn ($q) => $q->where('id_reunion_information', $request->integer('id_reunion_information'))))
+            ->when($request->filled('est_eleve'), fn ($q) => $request->boolean('est_eleve') ? $q->has('eleve') : $q->doesntHave('eleve'))
+            ->when($request->boolean('agent_de_joueur'), fn ($q) => $q->where('amos_contacts.agent_de_joueur', 1))
+            ->when($request->boolean('salon'), fn ($q) => $q->where('amos_contacts.salon', 1))
+            ->when($request->boolean('newsletter'), fn ($q) => $q->where('amos_contacts.newsletter', 1))
+            ->when($request->boolean('offres_partenaires'), fn ($q) => $q->where('amos_contacts.offres_partenaires', 1))
+            ->when($request->boolean('stop_relances'), fn ($q) => $q->where('amos_contacts.stop_relances', 1));
+
+        $segments = [
+            'prospects' => fn ($q) => $q->doesntHave('eleve'),
+            'candidats' => fn ($q) => $q->whereHas('eleve', fn ($q) => $q->where('profil', 'candidat')),
+            'agents' => fn ($q) => $q->where('amos_contacts.agent_de_joueur', 1),
+            'salons' => fn ($q) => $q->where('amos_contacts.salon', 1),
+            'stop' => fn ($q) => $q->where('amos_contacts.stop_relances', 1),
+        ];
+
+        // Comptes affichés sur chaque onglet de segment, calculés sur la même base filtrée
+        // (hors segment lui-même) pour rester cohérents avec les filtres actifs.
+        $comptesSegments = ['tous' => (clone $base)->count()];
+        foreach ($segments as $cle => $portee) {
+            $comptesSegments[$cle] = $portee(clone $base)->count();
+        }
+
+        if (isset($segments[$segment])) {
+            $base = $segments[$segment]($base);
+        }
+
+        if ($request->boolean('export')) {
+            return $this->exporterCsv((clone $base)->orderByDesc('amos_contacts.id_contact')->get());
+        }
+
+        $contacts = $base
+            ->when($tri, fn ($q) => $q->orderBy($tri, $sens), fn ($q) => $q->orderByDesc('amos_contacts.id_contact'))
             ->paginate(25)
             ->withQueryString();
 
-        return view('contacts.index', ['contacts' => $contacts, 'filtres' => $request->only(['recherche', 'agent_de_joueur', 'salon'])]);
+        return view('contacts.index', [
+            'contacts' => $contacts,
+            'filtres' => $request->only(['recherche', 'agent_de_joueur', 'salon', 'newsletter', 'offres_partenaires', 'stop_relances']),
+            'comptesSegments' => $comptesSegments,
+            'formations' => Formation::orderBy('niveau')->get(),
+            'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
+            'reunions' => ReunionInformation::orderByDesc('date')->limit(50)->get(),
+        ]);
+    }
+
+    private function exporterCsv($contacts): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($contacts) {
+            $sortie = fopen('php://output', 'w');
+            fputcsv($sortie, ['Civilité', 'Nom', 'Prénom', 'Email', 'Téléphone', 'Ville', 'Code postal', 'Formation'], ';');
+
+            foreach ($contacts as $contact) {
+                fputcsv($sortie, [
+                    $contact->civilite,
+                    $contact->nom,
+                    $contact->prenom,
+                    $contact->email,
+                    $contact->telephone,
+                    $contact->ville,
+                    $contact->code_postal,
+                    $contact->formation?->niveau ?? '',
+                ], ';');
+            }
+
+            fclose($sortie);
+        }, 'contacts-'.date('Ymd_Hi').'.csv', ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
     public function show(Contact $contact): View
