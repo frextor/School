@@ -13,6 +13,7 @@ use App\Models\UniteEnseignement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Portage de `Ref.php` (référentiel des heures d'enseignement : quel cours,
@@ -35,7 +36,7 @@ use Illuminate\View\View;
  */
 class ReferentielController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|StreamedResponse
     {
         $idEtablissement = $request->integer('id_etablissement') ?: (int) session('referentiel_etablissement');
         $idUe = $request->integer('id_unite_enseignement') ?: (int) session('referentiel_ue');
@@ -70,6 +71,15 @@ class ReferentielController extends Controller
                 ->get();
         }
 
+        // Portage de `export_referentiel()` : export CSV des lignes affichées (onglet actif),
+        // câblé sur le bouton « Exporter » de la vue (ajoute simplement ?export=1&onglet=...).
+        if ($request->boolean('export') && $idEtablissement && $idUe && $annee !== '') {
+            $onglet = $request->string('onglet') === 'classe' ? 'classe' : 'niveau';
+            $lignes = $onglet === 'classe' ? $lignesClasse : $lignesNiveau;
+
+            return $this->exporterCsv($lignes, $onglet);
+        }
+
         return view('referentiel.ref.index', [
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'unites' => UniteEnseignement::orderBy('nom_unite_enseignement')->get(),
@@ -83,6 +93,41 @@ class ReferentielController extends Controller
             'lignesNiveau' => $lignesNiveau,
             'lignesClasse' => $lignesClasse,
         ]);
+    }
+
+    private function exporterCsv($lignes, string $onglet): StreamedResponse
+    {
+        $entetes = ['Semestre', 'Niveau'];
+        if ($onglet === 'classe') {
+            $entetes[] = 'Classe';
+        }
+        array_push($entetes, 'Cours', 'Intervenant', 'CC', 'CR', 'TD', 'EI', 'Volume', 'ECTS');
+
+        return response()->streamDownload(function () use ($lignes, $onglet, $entetes) {
+            $sortie = fopen('php://output', 'w');
+            fputcsv($sortie, $entetes, ';');
+
+            foreach ($lignes as $ligne) {
+                $ligneCsv = [strtoupper($ligne->semestre), $ligne->niveau?->nom_niveau ?? ''];
+                if ($onglet === 'classe') {
+                    $ligneCsv[] = $ligne->classe?->classe ?? '';
+                }
+                array_push(
+                    $ligneCsv,
+                    $ligne->cours?->nom_cours ?? '',
+                    $ligne->intervenant ? $ligne->intervenant->nom.' '.$ligne->intervenant->prenom : '',
+                    $ligne->cc,
+                    $ligne->cr,
+                    $ligne->td,
+                    $ligne->ei,
+                    $ligne->volume,
+                    $ligne->ects,
+                );
+                fputcsv($sortie, $ligneCsv, ';');
+            }
+
+            fclose($sortie);
+        }, 'referentiel-'.$onglet.'-'.date('Ymd_Hi').'.csv', ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
     public function storeNiveau(Request $request): RedirectResponse
