@@ -71,7 +71,7 @@
             </form>
 
             @isset($footer)
-                {{ $footer }}
+                {!! $footer !!}
             @endisset
 
             @if (Route::has('eleve.login'))
