@@ -89,7 +89,9 @@ class EleveController extends Controller
 
     public function show(Eleve $eleve): View
     {
-        $eleve->load(['contact', 'niveau', 'niveauFuture', 'classe']);
+        // `classe.etablissement` : consommé par l'accesseur `Eleve::etablissement`
+        // (fiche à onglets, écran "referentiel/niveaux"...), sinon requête N+1 par élève.
+        $eleve->load(['contact', 'niveau', 'niveauFuture', 'classe.etablissement']);
 
         return view('eleves.show', ['eleve' => $eleve]);
     }
