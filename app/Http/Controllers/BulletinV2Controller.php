@@ -123,11 +123,18 @@ class BulletinV2Controller extends Controller
             ];
         })->values();
 
+        // Moyenne générale = moyenne simple des moyennes d'UE (pas de pondération ECTS :
+        // dépend de referentiel_classe, volontairement différé — voir en-tête de classe).
+        $moyennesUe = $ues->pluck('moyenne')->filter(fn ($m) => $m !== null);
+
         $pdf = Pdf::loadView('bulletin-v2.pdf', [
             'eleve' => $eleve,
             'ues' => $ues,
             'annee' => $data['annee'],
             'semestre' => $data['semestre'] ?? null,
+            'session' => $data['session'] ?? 0,
+            'etablissement' => Etablissement::find($data['id_etablissement']),
+            'moyenneGenerale' => $moyennesUe->isNotEmpty() ? round($moyennesUe->avg(), 2) : null,
         ]);
 
         $bulletin = SnBulletin::create([

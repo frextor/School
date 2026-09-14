@@ -43,6 +43,12 @@ class Evaluation extends Model
         return $this->belongsTo(SnTypeEvaluation::class, 'id_type_evaluation', 'id_type_evaluation');
     }
 
+    /** Affiché sur le bulletin PDF (colonne "Coef.") : le coefficient réel du type d'évaluation, pas une valeur par défaut arbitraire. */
+    public function getCoefficientAttribute()
+    {
+        return $this->typeEvaluation?->coef ?? 1;
+    }
+
     public function notes()
     {
         return $this->hasMany(Note::class, 'id_evaluation', 'id_evaluation');
