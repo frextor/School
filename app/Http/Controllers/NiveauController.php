@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\NiveauOptionController;
 use App\Models\Formation;
 use App\Models\Niveau;
 use Illuminate\Http\RedirectResponse;
@@ -66,6 +67,7 @@ class NiveauController extends Controller
             'niveau' => $niveau,
             'formations' => Formation::orderBy('niveau')->get(),
             'niveaux' => Niveau::where('id_niveau', '!=', $niveau->id_niveau)->orderBy('nom_niveau')->get(),
+            'objetsPaiement' => NiveauOptionController::objetsPaiement(),
         ]);
     }
 

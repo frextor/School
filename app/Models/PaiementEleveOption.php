@@ -16,4 +16,10 @@ class PaiementEleveOption extends Model
     {
         return $this->belongsTo(PaiementEleve::class, 'id_paiement_eleve', 'id_paiement_eleve');
     }
+
+    /** L'option du catalogue (titre, objet de paiement) dont ce montant est issu. */
+    public function niveauOption()
+    {
+        return $this->belongsTo(NiveauxOptions::class, 'id_niveau_option', 'id_niveau_option');
+    }
 }

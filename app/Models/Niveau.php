@@ -40,6 +40,12 @@ class Niveau extends Model
         return $this->hasMany(UniteEnseignement::class, 'id_niveau', 'id_niveau');
     }
 
+    /** Catalogue des options facturables (frais de dossier, assurance, etc.) pour ce niveau. */
+    public function options()
+    {
+        return $this->hasMany(NiveauxOptions::class, 'id_niveau', 'id_niveau');
+    }
+
     /** Campus rattachés à ce niveau (table pivot amos_etablissements_niveaux). */
     public function etablissements()
     {

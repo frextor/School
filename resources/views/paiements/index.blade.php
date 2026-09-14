@@ -14,6 +14,7 @@
                 <th>Date</th>
                 <th>Établissement</th>
                 <th>Montant réglé</th>
+                <th>Options facturées</th>
                 <th></th>
             </tr>
         </thead>
@@ -24,10 +25,11 @@
                     <td>{{ $paiement->date?->format('d/m/Y') }}</td>
                     <td>{{ $paiement->etablissement?->nom_etablissement }}</td>
                     <td>{{ number_format($paiement->montantTotal(), 2) }} €</td>
+                    <td>{{ $paiement->options->isNotEmpty() ? number_format($paiement->options->sum('montant'), 2).' €' : '—' }}</td>
                     <td><a href="{{ route('paiements.show', $paiement) }}">Détail</a></td>
                 </tr>
             @empty
-                <tr><td colspan="5">Aucun règlement.</td></tr>
+                <tr><td colspan="6">Aucun règlement.</td></tr>
             @endforelse
         </tbody>
     </table>

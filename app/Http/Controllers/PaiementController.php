@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\ChequePaiement;
 use App\Models\Eleve;
+use App\Models\NiveauxOptions;
 use App\Models\PaiementEleve;
+use App\Models\PaiementEleveOption;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +48,12 @@ class PaiementController extends Controller
 
     public function create(Eleve $eleve): View
     {
-        return view('paiements.create', ['eleve' => $eleve]);
+        $optionsDisponibles = NiveauxOptions::where('id_niveau', $eleve->id_niveau)
+            ->where('annee', $eleve->annee_formation ?: date('Y'))
+            ->orderBy('ordre')
+            ->get();
+
+        return view('paiements.create', ['eleve' => $eleve, 'optionsDisponibles' => $optionsDisponibles]);
     }
 
     /** Portage de `add_reglements()`. */
@@ -61,6 +68,10 @@ class PaiementController extends Controller
             'annee_rentree' => ['nullable', 'integer'],
             'mode_paiement' => ['nullable', 'in:CB,CHEQUE,VIREMENT'],
             'statut_paiement' => ['required', 'in:paye,accord_opco,cas_particulier'],
+            'options' => ['nullable', 'array'],
+            'options.*' => ['integer', 'exists:amos_niveaux_options,id_niveau_option'],
+            'montant_option' => ['nullable', 'array'],
+            'montant_option.*' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $paiement = DB::transaction(function () use ($data, $eleve) {
@@ -88,6 +99,22 @@ class PaiementController extends Controller
             ];
 
             $eleve->update(['paiement_formation' => $libelles[$data['statut_paiement']]]);
+
+            // Options facturées (catalogue du niveau) : le montant du catalogue est repris par
+            // défaut, mais reste modifiable au cas par cas sur ce règlement précis — comme en legacy.
+            foreach ($data['options'] ?? [] as $idNiveauOption) {
+                $optionCatalogue = NiveauxOptions::find($idNiveauOption);
+                if (! $optionCatalogue) {
+                    continue;
+                }
+
+                PaiementEleveOption::create([
+                    'id_paiement_eleve' => $paiement->id_paiement_eleve,
+                    'id_eleve' => $eleve->id_eleve,
+                    'id_niveau_option' => $idNiveauOption,
+                    'montant' => $data['montant_option'][$idNiveauOption] ?? $optionCatalogue->montant,
+                ]);
+            }
 
             return $paiement;
         });

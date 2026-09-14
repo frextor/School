@@ -21,6 +21,25 @@
         </div>
     @endif
 
+    @if ($paiement->options->isNotEmpty())
+        <h2>Options facturées</h2>
+        <table>
+            <thead><tr><th>Option</th><th>Montant</th></tr></thead>
+            <tbody>
+                @foreach ($paiement->options as $option)
+                    <tr>
+                        <td>{{ $option->niveauOption?->titre ?? '—' }}</td>
+                        <td>{{ number_format($option->montant, 2) }} €</td>
+                    </tr>
+                @endforeach
+                <tr>
+                    <td><strong>Total options</strong></td>
+                    <td><strong>{{ number_format($paiement->options->sum('montant'), 2) }} €</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    @endif
+
     <h2>Versements / chèques</h2>
     <table>
         <thead><tr><th>Montant</th><th>Mode</th><th>N° chèque</th><th>Banque</th><th>Date encaissement</th><th>Justificatif</th></tr></thead>

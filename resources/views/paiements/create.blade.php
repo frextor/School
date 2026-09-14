@@ -41,6 +41,26 @@
         <label for="commentaire">Commentaire</label>
         <textarea name="commentaire" id="commentaire" rows="3">{{ old('commentaire') }}</textarea>
 
+        @if ($optionsDisponibles->isNotEmpty())
+            <h3 style="margin-top:1.5rem">Options facturables</h3>
+            <p>Cochez les options à facturer sur ce règlement ; le montant proposé vient du catalogue du niveau mais reste modifiable.</p>
+
+            @foreach ($optionsDisponibles as $option)
+                <p style="display:flex;gap:0.5rem;align-items:center">
+                    <input type="checkbox" name="options[]" value="{{ $option->id_niveau_option }}"
+                           id="option-{{ $option->id_niveau_option }}"
+                           @checked(collect(old('options', []))->contains($option->id_niveau_option))>
+                    <label for="option-{{ $option->id_niveau_option }}" style="flex:1">{{ $option->titre }}</label>
+                    <input type="number" step="0.01" name="montant_option[{{ $option->id_niveau_option }}]"
+                           value="{{ old('montant_option.'.$option->id_niveau_option, $option->montant) }}" style="width:6rem">
+                    <span>€</span>
+                </p>
+            @endforeach
+        @else
+            <p style="margin-top:1rem;color:#666">Aucune option facturable définie pour le niveau de cet élève
+                (configurable depuis <a href="{{ route('referentiel.niveaux.index') }}">Référentiel &rsaquo; Niveaux</a>).</p>
+        @endif
+
         <p style="margin-top:1rem">
             <button type="submit" class="btn">Créer</button>
         </p>

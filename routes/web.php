@@ -34,6 +34,7 @@ use App\Http\Controllers\TypePieceEntrepriseController;
 use App\Http\Controllers\SpecialisationController;
 use App\Http\Controllers\MatiereController;
 use App\Http\Controllers\NiveauController;
+use App\Http\Controllers\NiveauOptionController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PanneauController;
@@ -312,6 +313,11 @@ Route::middleware('auth:admin')->group(function () {
     // Référentiel pédagogique (socle UE / Cours / Matières / Niveaux, portage partiel de Referentiel.php).
     Route::prefix('referentiel')->name('referentiel.')->group(function () {
         Route::resource('niveaux', NiveauController::class)->except('show');
+        Route::prefix('niveaux/{niveau}/options')->name('niveaux.options.')->group(function () {
+            Route::post('/', [NiveauOptionController::class, 'store'])->name('store');
+            Route::put('{option}', [NiveauOptionController::class, 'update'])->name('update');
+            Route::delete('{option}', [NiveauOptionController::class, 'destroy'])->name('destroy');
+        });
         Route::resource('unites', UniteEnseignementController::class)->except('show');
         Route::resource('cours', CoursController::class)
             ->except('show')
