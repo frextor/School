@@ -15,11 +15,26 @@
         <tr><th>Téléphone</th><td>{{ $eleve->contact?->telephone ?? '—' }}</td></tr>
         <tr><th>Date d'inscription</th><td>{{ $eleve->date_inscription?->format('d/m/Y') ?? '—' }}</td></tr>
         <tr><th>Montant formation</th><td>{{ $eleve->montant_formation ?: '—' }}</td></tr>
+        <tr>
+            <th>Statut paiement</th>
+            <td>
+                @php
+                    $statutPaiement = $eleve->paiement_formation ?: 'Non payé';
+                    $badgePaiement = match (true) {
+                        str_contains(strtolower($statutPaiement), 'payé') && ! str_contains(strtolower($statutPaiement), 'non') => 'badge-success',
+                        str_contains(strtolower($statutPaiement), 'opco') => 'badge-brand',
+                        default => 'badge-danger',
+                    };
+                @endphp
+                <span class="badge {{ $badgePaiement }}">{{ $statutPaiement }}</span>
+            </td>
+        </tr>
         <tr><th>Visible</th><td>{{ $eleve->visible ? 'Oui' : 'Non' }}</td></tr>
     </table>
 
-    <p style="margin-top:1rem">
+    <p style="margin-top:1rem;display:flex;gap:0.5rem">
         <a class="btn" href="{{ route('eleves.edit', $eleve) }}">Modifier</a>
+        <a class="btn btn-ghost" href="{{ route('paiements.index', $eleve) }}">Voir les règlements</a>
     </p>
 
     <form method="post" action="{{ route('eleves.destroy', $eleve) }}" onsubmit="return confirm('Masquer cet élève ?')">
