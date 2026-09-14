@@ -69,7 +69,10 @@ class EleveController extends Controller
             // plutôt qu'un écran dupliqué (voir MIGRATION_PROGRESS.md). Le filtre
             // avancé "Visible" de l'écran modernisé recouvre la même colonne — on
             // ne câble donc que ce bouton pour éviter que les deux ne se contredisent.
-            ->where('amos_eleves.visible', $request->boolean('archives'))
+            // `destroy()` masque un élève via `visible = false` : les fiches actives
+            // ont donc `visible = true`, et la liste "archives" doit chercher
+            // `visible = false` — inverse du booléen `archives` demandé.
+            ->where('amos_eleves.visible', ! $request->boolean('archives'))
             ->when($tri, fn ($q) => $q->orderBy($tri, $sens), fn ($q) => $q->orderByDesc('amos_eleves.id_eleve'))
             ->paginate(25)
             ->withQueryString();
