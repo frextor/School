@@ -106,6 +106,12 @@ class Eleve extends Model
         return $this->hasOne(UserEleve::class, 'id_eleve', 'id_eleve');
     }
 
+    /** Échéancier de scolarité (frais d'inscription + mensualités). */
+    public function echeances()
+    {
+        return $this->hasMany(Echeance::class, 'id_eleve', 'id_eleve')->orderBy('date_echeance');
+    }
+
     /** Absences et retards (table legacy `amos_absence_eleve`). */
     public function absences()
     {

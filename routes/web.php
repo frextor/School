@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\EleveAuthController;
 use App\Http\Controllers\Auth\EntrepriseAuthController;
 use App\Http\Controllers\Auth\IntervenantAuthController;
 use App\Http\Controllers\AbsenceController;
+use App\Http\Controllers\EcheanceController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\TuteurController;
 use App\Http\Controllers\AnnotationController;
@@ -176,6 +177,15 @@ Route::prefix('intervenant-inscription')->name('intervenant-inscription.')->grou
 Route::middleware('auth:admin')->group(function () {
     Route::resource('eleves', EleveController::class)
         ->parameters(['eleves' => 'eleve']);
+
+    // Échéanciers de scolarité : frais d'inscription + mensualités, suivi des impayés.
+    Route::prefix('echeances')->name('echeances.')->group(function () {
+        Route::get('/', [EcheanceController::class, 'index'])->name('index');
+        Route::get('generer', [EcheanceController::class, 'formulaire'])->name('generer');
+        Route::post('generer', [EcheanceController::class, 'generer'])->name('generer.store');
+        Route::post('{echeance}/regler', [EcheanceController::class, 'regler'])->name('regler');
+        Route::delete('{echeance}', [EcheanceController::class, 'destroy'])->name('destroy');
+    });
 
     // Assiduité : appel par classe, suivi des absences/retards, justificatifs.
     Route::prefix('absences')->name('absences.')->group(function () {

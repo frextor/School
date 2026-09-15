@@ -95,7 +95,18 @@ class EleveController extends Controller
         // Onglet Famille : `eleves_count` sert à signaler les fratries ("2 enfants dans l'école").
         $eleve->load(['tuteurs' => fn ($q) => $q->withCount('eleves')]);
 
-        return view('eleves.show', ['eleve' => $eleve]);
+        // Onglet Règlements : l'échéancier de l'année en cours. Le modèle Echeance
+        // expose `date_echeance`, `moyen`, `montant` et `encaisse`, exactement la
+        // forme attendue par la vue — d'où l'absence d'adaptation ici.
+        $echeances = $eleve->echeances()
+            ->annee(\App\Models\Echeance::anneeScolaireCourante())
+            ->get();
+
+        return view('eleves.show', [
+            'eleve' => $eleve,
+            // `null` masque l'onglet : on ne l'affiche que si un échéancier existe.
+            'paiements' => $echeances->isNotEmpty() ? $echeances : null,
+        ]);
     }
 
     public function create(): View

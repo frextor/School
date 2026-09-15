@@ -14,6 +14,10 @@
             ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', 'Groupes'],
             ['absences.index', 'absences.*', 'check', 'Assiduité'],
         ]],
+        ['Scolarité payante', [
+            ['echeances.index', 'echeances.index', 'card', 'Échéanciers & impayés'],
+            ['echeances.generer', 'echeances.generer', 'plus', 'Générer un échéancier'],
+        ]],
         ['Inscriptions & familles', [
             ['contacts.index', 'contacts.*', 'contact', 'Familles / prospects'],
             ['taches.index', 'taches.*', 'check', 'Tâches / relances'],
