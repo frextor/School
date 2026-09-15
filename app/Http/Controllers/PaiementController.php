@@ -7,7 +7,6 @@ use App\Models\Eleve;
 use App\Models\NiveauxOptions;
 use App\Models\PaiementEleve;
 use App\Models\PaiementEleveOption;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -167,12 +166,19 @@ class PaiementController extends Controller
     }
 
     /** Portage de `delete_reglement()` (simplifié, voir en-tête de classe). */
-    public function destroy(PaiementEleve $paiement): JsonResponse
+    public function destroy(PaiementEleve $paiement): RedirectResponse
     {
+        $idEleve = $paiement->id_eleve;
+
         $paiement->cheques()->delete();
         $paiement->options()->delete();
         $paiement->delete();
 
-        return response()->json(['status' => 'success', 'message' => 'Suppression bien faite']);
+        // Bug corrigé : renvoyait du JSON brut à un formulaire HTML classique
+        // (resources/views/paiements/show.blade.php) — la page affichait le
+        // texte JSON au lieu de revenir à la liste des règlements.
+        return redirect()
+            ->route('paiements.index', $idEleve)
+            ->with('status', 'Règlement supprimé.');
     }
 }

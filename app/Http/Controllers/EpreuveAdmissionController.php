@@ -6,8 +6,8 @@ use App\Models\Eleve;
 use App\Models\EpreuveAdmission;
 use App\Models\EpreuveAdmissionEleve;
 use App\Models\Formation;
+use App\Models\MotifsRefusCandidat;
 use App\Models\ResultatEpreuveEleve;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,9 +78,28 @@ class EpreuveAdmissionController extends Controller
 
     public function edit(EpreuveAdmission $epreuve): View
     {
-        $epreuve->load('formations');
+        $epreuve->load([
+            'formations',
+            'inscriptions.eleve.contact',
+            'resultats',
+        ]);
 
-        return view('epreuves.edit', ['epreuve' => $epreuve, 'formations' => Formation::orderBy('niveau')->get()]);
+        $idsInscrits = $epreuve->inscriptions->pluck('id_eleve');
+
+        return view('epreuves.edit', [
+            'epreuve' => $epreuve,
+            'formations' => Formation::orderBy('niveau')->get(),
+            // Résultat existant par candidat, pour pré-remplir le formulaire de notes.
+            'resultatsParEleve' => $epreuve->resultats->keyBy('id_eleve'),
+            // Candidats déjà inscrits exclus, pour ne pas doubler une inscription.
+            'candidatsDisponibles' => Eleve::candidats()
+                ->whereNotIn('id_eleve', $idsInscrits)
+                ->with('contact')
+                ->get()
+                ->filter(fn (Eleve $c) => $c->contact)
+                ->sortBy(fn (Eleve $c) => $c->contact->nom_complet),
+            'motifsRefus' => MotifsRefusCandidat::orderBy('libelle')->get(),
+        ]);
     }
 
     /** Portage de `update_epreuve()`. */
@@ -140,20 +159,20 @@ class EpreuveAdmissionController extends Controller
     }
 
     /** Portage de `update_epreuve_presence()`. */
-    public function togglePresence(EpreuveAdmissionEleve $inscription): JsonResponse
+    public function togglePresence(EpreuveAdmissionEleve $inscription): RedirectResponse
     {
         $inscription->update(['presence' => ! $inscription->presence]);
 
-        return response()->json('ok');
+        return back()->with('status', 'Présence mise à jour.');
     }
 
-    public function suppressionCandidat(EpreuveAdmission $epreuve, Eleve $candidat): JsonResponse
+    public function suppressionCandidat(EpreuveAdmission $epreuve, Eleve $candidat): RedirectResponse
     {
         EpreuveAdmissionEleve::where('id_epreuve_admission', $epreuve->id_epreuve_admission)
             ->where('id_eleve', $candidat->id_eleve)
             ->delete();
 
-        return response()->json('ok');
+        return back()->with('status', 'Candidat retiré de cette épreuve.');
     }
 
     /** Portage de `add_resultats()` — saisie/mise à jour des notes et de la décision. */
@@ -186,18 +205,18 @@ class EpreuveAdmissionController extends Controller
     }
 
     /** Portage de `delete_resultat()`. */
-    public function destroyResultat(ResultatEpreuveEleve $resultat): JsonResponse
+    public function destroyResultat(ResultatEpreuveEleve $resultat): RedirectResponse
     {
         $resultat->delete();
 
-        return response()->json('ok');
+        return back()->with('status', 'Résultat supprimé.');
     }
 
     /** Portage de `archive_resultat()`. */
-    public function archiveResultat(ResultatEpreuveEleve $resultat): JsonResponse
+    public function archiveResultat(ResultatEpreuveEleve $resultat): RedirectResponse
     {
         $resultat->update(['archive' => ! $resultat->archive]);
 
-        return response()->json('ok');
+        return back()->with('status', $resultat->archive ? 'Résultat archivé.' : 'Résultat désarchivé.');
     }
 }
