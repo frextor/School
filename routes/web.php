@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\EleveAuthController;
 use App\Http\Controllers\Auth\EntrepriseAuthController;
 use App\Http\Controllers\Auth\IntervenantAuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\TuteurController;
 use App\Http\Controllers\AnnotationController;
 use App\Http\Controllers\ArchivesReunionController;
 use App\Http\Controllers\CandidatController;
@@ -174,6 +175,15 @@ Route::prefix('intervenant-inscription')->name('intervenant-inscription.')->grou
 Route::middleware('auth:admin')->group(function () {
     Route::resource('eleves', EleveController::class)
         ->parameters(['eleves' => 'eleve']);
+
+    // Parents / tuteurs : gérés depuis l'onglet « Famille » de la fiche élève.
+    Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');
+    Route::prefix('eleves/{eleve}/tuteurs')->name('tuteurs.')->group(function () {
+        Route::post('/', [TuteurController::class, 'store'])->name('store');
+        Route::post('attacher', [TuteurController::class, 'attacher'])->name('attacher');
+        Route::put('{tuteur}', [TuteurController::class, 'update'])->name('update');
+        Route::delete('{tuteur}', [TuteurController::class, 'destroy'])->name('destroy');
+    });
 
     Route::prefix('eleves/{eleve}/paiements')->name('paiements.')->group(function () {
         Route::get('/', [PaiementController::class, 'index'])->name('index');

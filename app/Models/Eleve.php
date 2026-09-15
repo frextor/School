@@ -106,6 +106,15 @@ class Eleve extends Model
         return $this->hasOne(UserEleve::class, 'id_eleve', 'id_eleve');
     }
 
+    /** Parents / tuteurs légaux (K-12) — une fratrie partage les mêmes fiches tuteur. */
+    public function tuteurs()
+    {
+        return $this->belongsToMany(Tuteur::class, 'eleve_tuteur', 'id_eleve', 'id_tuteur')
+            ->withPivot(['lien_parente', 'responsable_legal', 'contact_urgence', 'ordre'])
+            ->withTimestamps()
+            ->orderBy('eleve_tuteur.ordre');
+    }
+
     public function epreuvesInscriptions()
     {
         return $this->hasMany(EpreuveAdmissionEleve::class, 'id_eleve', 'id_eleve');

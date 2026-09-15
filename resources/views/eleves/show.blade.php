@@ -112,6 +112,9 @@
 
     <div class="tabs-bar" role="tablist">
         <button type="button" class="tab is-active" data-tab="scolarite" role="tab">Scolarité</button>
+        <button type="button" class="tab" data-tab="famille" role="tab">
+            Famille<span class="tab-badge">{{ $eleve->tuteurs->count() }}</span>
+        </button>
         @if ($paiements !== null)
             <button type="button" class="tab" data-tab="reglements" role="tab">
                 Règlements<span class="tab-badge">{{ count($paiements) }}</span>
@@ -162,6 +165,126 @@
                             <div class="field-value is-regular">{{ $valeur }}</div>
                         </div>
                     @endforeach
+                </div>
+            </section>
+        </div>
+
+        {{-- Famille : parents / tuteurs légaux (K-12) --}}
+        <div data-panel="famille" hidden>
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Parents / tuteurs</h2>
+                    <span class="panel-sub">{{ $eleve->tuteurs->count() }} rattaché(s) à cet élève</span>
+                </div>
+
+                @forelse ($eleve->tuteurs as $tuteur)
+                    <div class="tut">
+                        <div class="tut-row">
+                            <span class="tut-avatar">{{ mb_strtoupper(mb_substr($tuteur->prenom, 0, 1).mb_substr($tuteur->nom, 0, 1)) }}</span>
+                            <span class="tut-text">
+                                <span class="tut-name">{{ $tuteur->nom_complet }}</span>
+                                <span class="tut-sub">
+                                    {{ $tuteur->lien_libelle }}
+                                    @if ($tuteur->profession) · {{ $tuteur->profession }} @endif
+                                    @if ($tuteur->eleves_count > 1) · {{ $tuteur->eleves_count }} enfants dans l'école @endif
+                                </span>
+                            </span>
+
+                            @if ($tuteur->pivot->responsable_legal)
+                                <span class="pill" style="background:#eef0fe;color:#3730a3">Responsable légal</span>
+                            @endif
+                            @if ($tuteur->pivot->contact_urgence)
+                                <span class="pill" style="background:#fdf3e3;color:#92400e">Urgence</span>
+                            @endif
+
+                            <button type="button" class="caret" data-tut-toggle aria-label="Modifier ce parent">
+                                @include('partials.icon', ['n' => 'chevron-down', 's' => 15, 'c' => '#585e72', 'w' => 2.2])
+                            </button>
+                        </div>
+
+                        <div class="tut-contacts">
+                            @if ($tuteur->telephone)
+                                <a href="tel:{{ preg_replace('/\s+/', '', $tuteur->telephone) }}">
+                                    @include('partials.icon', ['n' => 'phone', 's' => 14, 'c' => '#9aa0b0']){{ $tuteur->telephone }}
+                                </a>
+                            @endif
+                            @if ($tuteur->email)
+                                <a href="mailto:{{ $tuteur->email }}">
+                                    @include('partials.icon', ['n' => 'mail', 's' => 14, 'c' => '#9aa0b0']){{ $tuteur->email }}
+                                </a>
+                            @endif
+                            @if ($tuteur->cin)
+                                <span class="tut-meta">@include('partials.icon', ['n' => 'tag', 's' => 14, 'c' => '#9aa0b0'])CIN {{ $tuteur->cin }}</span>
+                            @endif
+                        </div>
+
+                        <div class="tut-body" hidden>
+                            <form method="post" action="{{ route('tuteurs.update', [$eleve, $tuteur]) }}" class="tut-form">
+                                @csrf
+                                @method('PUT')
+                                @include('eleves._tuteur-champs', ['tuteur' => $tuteur, 'lien' => $tuteur->pivot->lien_parente, 'pivot' => $tuteur->pivot])
+
+                                <div class="tut-actions">
+                                    <button type="submit" class="btn">Enregistrer</button>
+                                </div>
+                            </form>
+
+                            <form method="post" action="{{ route('tuteurs.destroy', [$eleve, $tuteur]) }}" class="inline-form"
+                                  onsubmit="return confirm('Retirer ce parent de la fiche de cet élève ?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger">Retirer de cet élève</button>
+                            </form>
+                        </div>
+                    </div>
+                @empty
+                    <div class="empty-cell">
+                        @include('partials.icon', ['n' => 'contact', 's' => 26, 'c' => '#c9cdd9', 'w' => 1.6])
+                        <span>Aucun parent renseigné pour cet élève.</span>
+                    </div>
+                @endforelse
+
+                <div class="tut-foot">
+                    <details>
+                        <summary>Ajouter un parent / tuteur</summary>
+
+                        <form method="post" action="{{ route('tuteurs.store', $eleve) }}" class="tut-form" style="margin-top:12px">
+                            @csrf
+                            @include('eleves._tuteur-champs', ['tuteur' => null, 'lien' => 'pere', 'pivot' => null])
+                            <div class="tut-actions">
+                                <button type="submit" class="btn">Ajouter</button>
+                            </div>
+                        </form>
+                    </details>
+
+                    <details style="margin-top:8px">
+                        <summary>Rattacher un parent déjà enregistré (fratrie)</summary>
+
+                        <form method="post" action="{{ route('tuteurs.attacher', $eleve) }}" class="tut-form" style="margin-top:12px" id="form-attacher">
+                            @csrf
+                            <div class="tut-grid">
+                                <label class="stack" style="flex:1 1 260px">
+                                    <span>Rechercher un parent existant</span>
+                                    <input type="text" id="tut-recherche" autocomplete="off" placeholder="Nom, téléphone ou email…">
+                                    <input type="hidden" name="id_tuteur" id="tut-id" required>
+                                    <div class="tut-results" id="tut-results" hidden></div>
+                                </label>
+                                <label class="stack">
+                                    <span>Lien de parenté</span>
+                                    <select name="lien_parente" required>
+                                        @foreach (\App\Models\Tuteur::LIENS as $valeur => $libelle)
+                                            <option value="{{ $valeur }}">{{ $libelle }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="check"><input type="checkbox" name="responsable_legal" value="1" checked> Responsable légal</label>
+                            <label class="check"><input type="checkbox" name="contact_urgence" value="1"> Contact d'urgence</label>
+                            <div class="tut-actions">
+                                <button type="submit" class="btn">Rattacher</button>
+                            </div>
+                        </form>
+                    </details>
                 </div>
             </section>
         </div>
@@ -444,6 +567,39 @@
     .side-action.is-danger { color: var(--danger-dark); border-color: #fecaca; }
     .side-action.is-danger:hover { background: var(--danger-bg); color: var(--danger-dark); border-color: #fecaca; }
     .side-action.is-danger svg { stroke: var(--danger-dark); }
+
+    /* Onglet Famille : parents / tuteurs */
+    .tut { border-bottom: 1px solid #f6f7fa; }
+    .tut-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px 4px; flex-wrap: wrap; }
+    .tut-avatar {
+        width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; background: var(--brand-light);
+        color: var(--brand-deep); font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .tut-text { min-width: 0; flex: 1 1 180px; }
+    .tut-name { display: block; font-size: 13.5px; font-weight: 600; }
+    .tut-sub { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    .tut-contacts { display: flex; gap: 16px; flex-wrap: wrap; padding: 0 16px 13px 62px; }
+    .tut-contacts a, .tut-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: #585e72; }
+    .tut-contacts a:hover { color: var(--brand); }
+    .tut-meta { color: var(--muted); font-weight: 400; }
+    .tut-body { padding: 0 16px 15px 62px; }
+    .tut-form { max-width: none; background: #fbfbff; border: 1px solid #eef0f5; border-radius: 12px; padding: 14px; margin: 0; }
+    .tut-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .tut-grid .stack { flex: 1 1 150px; margin: 0; }
+    .tut-form .stack > span:first-child { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+    .tut-form input, .tut-form select { width: 100%; max-width: none; border-radius: 9px; padding: 9px 11px; font-size: 13px; background: #fff; }
+    .tut-form .check { display: inline-flex; align-items: center; gap: 7px; margin: 4px 14px 0 0; font-size: 12.5px; font-weight: 500; }
+    .tut-form .check input { width: 15px; height: 15px; margin: 0; }
+    .tut-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .tut-foot { padding: 14px 16px; background: #fbfbff; border-top: 1px solid var(--border-soft); }
+    .tut-foot summary { font-size: 13px; font-weight: 600; color: var(--brand-deep); cursor: pointer; }
+    .tut-results { position: relative; margin-top: 4px; }
+    .tut-results button {
+        display: block; width: 100%; text-align: left; padding: 9px 11px; border: 1px solid var(--border);
+        border-radius: 9px; background: #fff; cursor: pointer; font: inherit; font-size: 12.5px; margin-top: 4px;
+    }
+    .tut-results button:hover { border-color: #c3c6f5; background: #fafbff; }
+    .tut-results .tut-result-detail { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 </style>
 
 <script>
@@ -459,6 +615,71 @@
                 panels.forEach(function (p) { p.hidden = p.dataset.panel !== tab.dataset.tab; });
             });
         });
+
+        // Onglet Famille : dépliage du formulaire de chaque parent
+        document.querySelectorAll('[data-tut-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var body = btn.closest('.tut').querySelector('.tut-body');
+                body.hidden = !body.hidden;
+            });
+        });
+
+        // Recherche d'un parent déjà enregistré (fratrie)
+        var rech = document.getElementById('tut-recherche');
+        var results = document.getElementById('tut-results');
+        var hidden = document.getElementById('tut-id');
+
+        if (rech && results && hidden) {
+            var timer = null;
+
+            rech.addEventListener('input', function () {
+                hidden.value = '';
+                clearTimeout(timer);
+                var q = rech.value.trim();
+
+                if (q.length < 2) {
+                    results.hidden = true;
+                    results.innerHTML = '';
+                    return;
+                }
+
+                timer = setTimeout(function () {
+                    fetch('{{ route('tuteurs.recherche') }}?q=' + encodeURIComponent(q))
+                        .then(function (r) { return r.json(); })
+                        .then(function (liste) {
+                            results.innerHTML = '';
+                            if (!liste.length) {
+                                results.hidden = true;
+                                return;
+                            }
+                            liste.forEach(function (t) {
+                                var b = document.createElement('button');
+                                b.type = 'button';
+                                b.textContent = t.libelle;
+                                var d = document.createElement('span');
+                                d.className = 'tut-result-detail';
+                                d.textContent = t.detail;
+                                b.appendChild(d);
+                                b.addEventListener('click', function () {
+                                    hidden.value = t.id_tuteur;
+                                    rech.value = t.libelle;
+                                    results.hidden = true;
+                                });
+                                results.appendChild(b);
+                            });
+                            results.hidden = false;
+                        });
+                }, 250);
+            });
+
+            // Empêche l'envoi si aucun parent n'a été choisi dans la liste.
+            document.getElementById('form-attacher').addEventListener('submit', function (e) {
+                if (!hidden.value) {
+                    e.preventDefault();
+                    alert('Choisissez un parent dans la liste des résultats.');
+                }
+            });
+        }
     })();
 </script>
 @endsection

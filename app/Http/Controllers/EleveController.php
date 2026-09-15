@@ -92,6 +92,8 @@ class EleveController extends Controller
         // `classe.etablissement` : consommé par l'accesseur `Eleve::etablissement`
         // (fiche à onglets, écran "referentiel/niveaux"...), sinon requête N+1 par élève.
         $eleve->load(['contact', 'niveau', 'niveauFuture', 'classe.etablissement']);
+        // Onglet Famille : `eleves_count` sert à signaler les fratries ("2 enfants dans l'école").
+        $eleve->load(['tuteurs' => fn ($q) => $q->withCount('eleves')]);
 
         return view('eleves.show', ['eleve' => $eleve]);
     }
