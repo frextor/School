@@ -444,6 +444,9 @@
                         @include('partials.icon', ['n' => 'printer', 's' => 15])Générer un bulletin
                     </a>
                 @endif
+                <a href="{{ route('eleves.certificat-scolarite', $eleve) }}" class="side-action" target="_blank" rel="noopener">
+                    @include('partials.icon', ['n' => 'file', 's' => 15])Certificat de scolarité
+                </a>
                 @if ($contact?->email)
                     <a href="mailto:{{ $contact->email }}" class="side-action">
                         @include('partials.icon', ['n' => 'mail', 's' => 15])Envoyer un email

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\EleveAuthController;
 use App\Http\Controllers\Auth\EntrepriseAuthController;
 use App\Http\Controllers\Auth\IntervenantAuthController;
 use App\Http\Controllers\AbsenceController;
+use App\Http\Controllers\DocumentEleveController;
 use App\Http\Controllers\EcheanceController;
 use App\Http\Controllers\MatiereNiveauController;
 use App\Http\Controllers\AdminController;
@@ -196,6 +197,10 @@ Route::middleware('auth:admin')->group(function () {
         Route::post('{absence}/justifier', [AbsenceController::class, 'justifier'])->name('justifier');
         Route::delete('{absence}', [AbsenceController::class, 'destroy'])->name('destroy');
     });
+
+    // Documents administratifs délivrés depuis la fiche élève.
+    Route::get('eleves/{eleve}/certificat-scolarite', [DocumentEleveController::class, 'certificatScolarite'])
+        ->name('eleves.certificat-scolarite');
 
     // Parents / tuteurs : gérés depuis l'onglet « Famille » de la fiche élève.
     Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');
