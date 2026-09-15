@@ -1,30 +1,31 @@
 @php
-    // Menu admin : groupes repliables (<details>) + filtre client. Mêmes routes
-    // qu'avant, icônes SVG (partials.icon) à la place des emoji.
+    // Menu admin : groupes repliables (<details>) + filtre client.
+    //
+    // Orientation K-12 marocain (Maternelle / Primaire / Collège / Lycée) :
+    // les écrans hérités de l'enseignement supérieur (candidats, épreuves
+    // d'admission, entreprises/alternance) ne sont plus listés ici. Leurs
+    // routes et contrôleurs restent en place et fonctionnels — il suffit de
+    // remettre la ligne correspondante pour les réactiver.
     $navGroups = [
-        ['Élèves & candidats', [
+        ['Scolarité', [
             ['eleves.index', 'eleves.*', 'users', 'Élèves'],
-            ['candidats.index', 'candidats.*', 'file', 'Candidats'],
-            ['epreuves.index', 'epreuves.*', 'calc', "Épreuves d'admission"],
+            ['referentiel.classes.index', 'referentiel.classes.*', 'tag', 'Classes'],
+            ['referentiel.niveaux.index', 'referentiel.niveaux.*', 'levels', 'Niveaux & cycles'],
+            ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', 'Groupes'],
         ]],
-        ['CRM', [
-            ['contacts.index', 'contacts.*', 'contact', 'Contacts'],
-            ['entreprises.index', 'entreprises.*', 'building', 'Entreprises'],
+        ['Inscriptions & familles', [
+            ['contacts.index', 'contacts.*', 'contact', 'Familles / prospects'],
             ['taches.index', 'taches.*', 'check', 'Tâches / relances'],
             ['recherche.search', 'recherche.*', 'search', 'Recherche'],
-            ['archives.reunions', 'archives.*', 'archive', 'Archives réunions'],
-            ['import.index', 'import.*', 'inbox', 'Import contacts'],
+            ['import.index', 'import.*', 'inbox', 'Import de contacts'],
         ]],
         ['Pédagogie', [
-            ['referentiel.niveaux.index', 'referentiel.niveaux.*', 'levels', 'Niveaux'],
-            ['referentiel.unites.index', 'referentiel.unites.*', 'book', "Unités d'enseignement"],
-            ['referentiel.cours.index', 'referentiel.cours.*', 'book', 'Cours'],
             ['referentiel.matieres.index', 'referentiel.matieres.*', 'calc', 'Matières'],
-            ['referentiel.classes.index', 'referentiel.classes.*', 'tag', 'Classes'],
-            ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', 'Groupes'],
-            ['referentiel.periodes-formation.index', 'referentiel.periodes-formation.*', 'cal', 'Périodes de formation'],
+            ['referentiel.cours.index', 'referentiel.cours.*', 'book', 'Cours'],
+            ['referentiel.unites.index', 'referentiel.unites.*', 'book', "Unités d'enseignement"],
+            ['referentiel.periodes-formation.index', 'referentiel.periodes-formation.*', 'cal', 'Périodes scolaires'],
             ['referentiel.ref.index', 'referentiel.ref.*', 'clock', 'Référentiel des heures'],
-            ['referentiel.parametrage.index', 'referentiel.parametrage.*', 'chart', 'Volumes de formation'],
+            ['referentiel.parametrage.index', 'referentiel.parametrage.*', 'chart', 'Volumes horaires'],
         ]],
         ['Notation & bulletins', [
             ['evaluations.index', 'evaluations.*', 'pencil', 'Évaluations & notes'],
@@ -32,12 +33,12 @@
             ['bulletins.index', 'bulletins.index', 'file', 'Bulletins (décisions)'],
             ['bulletin-v2.index', 'bulletin-v2.*', 'printer', 'Bulletins PDF'],
         ]],
-        ['Établissements & RH', [
+        ['Établissements & personnel', [
             ['referentiel.etablissements.index', 'referentiel.etablissements.*', 'school', 'Établissements'],
-            ['referentiel.intervenants.index', 'referentiel.intervenants.*', 'school', 'Intervenants'],
+            ['referentiel.intervenants.index', 'referentiel.intervenants.*', 'school', 'Enseignants'],
             ['referentiel.signatures.index', 'referentiel.signatures.*', 'pen', 'Signatures'],
             ['salles.index', 'salles.*', 'door', 'Salles'],
-            ['planning.index', 'planning.*', 'cal', 'Planning'],
+            ['planning.index', 'planning.*', 'cal', 'Emploi du temps'],
             ['panneaux.index', 'panneaux.*', 'bulb', 'Panneaux lumineux'],
         ]],
         ['Administration', [

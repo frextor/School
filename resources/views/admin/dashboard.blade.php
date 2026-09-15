@@ -5,24 +5,27 @@
 @section('content')
 @php
     // Raccourcis regroupés par domaine. Chaque entrée : [route, libellé].
+    // Orientation K-12 marocain : les écrans hérités du supérieur (candidats,
+    // épreuves d'admission, entreprises/alternance) ne sont plus proposés ici,
+    // mais leurs routes restent actives (voir partials/admin-nav.blade.php).
     $domaines = [
-        ['Élèves & candidats', 'indigo', 'users', [
+        ['Scolarité', 'indigo', 'users', [
             ['eleves.index', 'Élèves'],
-            ['candidats.index', 'Candidats'],
             // Pas de "paiements.index" ici : la route existe mais requiert un {eleve}
             // (les règlements se consultent depuis la fiche élève, pas de liste globale).
-            ['epreuves.index', "Épreuves d'admission"],
+            ['referentiel.classes.index', 'Classes'],
+            ['referentiel.niveaux.index', 'Niveaux & cycles'],
+            ['referentiel.groupes.index', 'Groupes'],
         ]],
-        ['CRM', 'teal', 'contact', [
-            ['contacts.index', 'Contacts'],
-            ['entreprises.index', 'Entreprises'],
+        ['Inscriptions & familles', 'teal', 'contact', [
+            ['contacts.index', 'Familles / prospects'],
             ['taches.index', 'Tâches / relances'],
-            ['import.index', 'Import contacts'],
+            ['import.index', 'Import de contacts'],
         ]],
         ['Pédagogie', 'amber', 'book', [
-            ['planning.index', 'Planning'],
-            ['referentiel.niveaux.index', 'Niveaux & cours'],
-            ['referentiel.classes.index', 'Classes & groupes'],
+            ['planning.index', 'Emploi du temps'],
+            ['referentiel.matieres.index', 'Matières'],
+            ['referentiel.cours.index', 'Cours'],
             ['referentiel.ref.index', 'Référentiel des heures'],
         ]],
         ['Notation & bulletins', 'rose', 'pencil', [
@@ -31,8 +34,8 @@
             ['bulletins.index', 'Bulletins (décisions)'],
             ['types-evaluation.index', "Types d'évaluation"],
         ]],
-        ['Établissements & RH', 'violet', 'school', [
-            ['referentiel.intervenants.index', 'Intervenants'],
+        ['Établissements & personnel', 'violet', 'school', [
+            ['referentiel.intervenants.index', 'Enseignants'],
             ['referentiel.etablissements.index', 'Établissements'],
             ['salles.index', 'Salles'],
             ['referentiel.signatures.index', 'Signatures'],
@@ -45,10 +48,10 @@
         ]],
     ];
 
+    // L'espace entreprise (alternance/conventions) relève du supérieur : masqué ici.
     $portails = [
-        ['eleve.login', 'cap', 'Espace élève', 'Planning, notes, documents'],
-        ['intervenant.login', 'school', 'Espace intervenant', 'Classes, émargement, saisie'],
-        ['entreprise.login', 'building', 'Espace entreprise', 'Alternants, conventions'],
+        ['eleve.login', 'cap', 'Espace élève', 'Emploi du temps, notes, documents'],
+        ['intervenant.login', 'school', 'Espace enseignant', 'Classes, émargement, saisie des notes'],
     ];
 
     $prenom = auth('admin')->user()->prenom;
