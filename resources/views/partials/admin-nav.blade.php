@@ -12,6 +12,7 @@
             ['referentiel.classes.index', 'referentiel.classes.*', 'tag', 'Classes'],
             ['referentiel.niveaux.index', 'referentiel.niveaux.*', 'levels', 'Niveaux & cycles'],
             ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', 'Groupes'],
+            ['absences.index', 'absences.*', 'check', 'Assiduité'],
         ]],
         ['Inscriptions & familles', [
             ['contacts.index', 'contacts.*', 'contact', 'Familles / prospects'],

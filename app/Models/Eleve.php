@@ -106,6 +106,12 @@ class Eleve extends Model
         return $this->hasOne(UserEleve::class, 'id_eleve', 'id_eleve');
     }
 
+    /** Absences et retards (table legacy `amos_absence_eleve`). */
+    public function absences()
+    {
+        return $this->hasMany(AbsenceEleve::class, 'id_eleve', 'id_eleve');
+    }
+
     /** Parents / tuteurs légaux (K-12) — une fratrie partage les mêmes fiches tuteur. */
     public function tuteurs()
     {

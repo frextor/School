@@ -16,6 +16,7 @@
             ['referentiel.classes.index', 'Classes'],
             ['referentiel.niveaux.index', 'Niveaux & cycles'],
             ['referentiel.groupes.index', 'Groupes'],
+            ['absences.index', 'Assiduité'],
         ]],
         ['Inscriptions & familles', 'teal', 'contact', [
             ['contacts.index', 'Familles / prospects'],

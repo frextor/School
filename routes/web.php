@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Auth\EleveAuthController;
 use App\Http\Controllers\Auth\EntrepriseAuthController;
 use App\Http\Controllers\Auth\IntervenantAuthController;
+use App\Http\Controllers\AbsenceController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\TuteurController;
 use App\Http\Controllers\AnnotationController;
@@ -175,6 +176,15 @@ Route::prefix('intervenant-inscription')->name('intervenant-inscription.')->grou
 Route::middleware('auth:admin')->group(function () {
     Route::resource('eleves', EleveController::class)
         ->parameters(['eleves' => 'eleve']);
+
+    // Assiduité : appel par classe, suivi des absences/retards, justificatifs.
+    Route::prefix('absences')->name('absences.')->group(function () {
+        Route::get('/', [AbsenceController::class, 'index'])->name('index');
+        Route::get('appel', [AbsenceController::class, 'appel'])->name('appel');
+        Route::post('appel', [AbsenceController::class, 'enregistrerAppel'])->name('appel.store');
+        Route::post('{absence}/justifier', [AbsenceController::class, 'justifier'])->name('justifier');
+        Route::delete('{absence}', [AbsenceController::class, 'destroy'])->name('destroy');
+    });
 
     // Parents / tuteurs : gérés depuis l'onglet « Famille » de la fiche élève.
     Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');
