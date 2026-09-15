@@ -23,6 +23,14 @@ class Cours extends Model
         return $this->hasMany(CoursAnnee::class, 'id_cours', 'id_cours');
     }
 
+    /** Niveaux où cette matière est enseignée, avec son coefficient (K-12). */
+    public function niveaux()
+    {
+        return $this->belongsToMany(Niveau::class, 'matiere_niveau', 'id_cours', 'id_niveau')
+            ->withPivot(['coefficient', 'ordre'])
+            ->withTimestamps();
+    }
+
     public function competences()
     {
         return $this->hasMany(CoursCompetence::class, 'id_cours', 'id_cours');

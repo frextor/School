@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\NiveauOptionController;
+use App\Models\Cours;
 use App\Models\Formation;
 use App\Models\Niveau;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,10 @@ class NiveauController extends Controller
             'formations' => Formation::orderBy('niveau')->get(),
             'niveaux' => Niveau::where('id_niveau', '!=', $niveau->id_niveau)->orderBy('nom_niveau')->get(),
             'objetsPaiement' => NiveauOptionController::objetsPaiement(),
+            // Matières pas encore rattachées à ce niveau, pour la liste d'ajout.
+            'matieresDisponibles' => Cours::whereNotIn('id_cours', $niveau->matieres()->pluck('amos_cours.id_cours'))
+                ->orderBy('nom_cours')
+                ->get(),
         ]);
     }
 

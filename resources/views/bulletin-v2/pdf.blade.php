@@ -85,8 +85,7 @@
     $contact = $eleve->contact ?? null;
     $note = fn ($valeur) => $valeur === null || $valeur === '' ? '—' : number_format((float) $valeur, 2, ',', ' ');
     $moyenneGenerale = $moyenneGenerale ?? null;
-    $ectsAcquis = $ectsAcquis ?? null;
-    $ectsTotal = $ectsTotal ?? null;
+    $assiduite = $assiduite ?? ['absences' => 0, 'absences_non_justifiees' => 0, 'retards' => 0];
     $rang = $rang ?? null;
     $effectif = $effectif ?? null;
     $decision = $decision ?? null;
@@ -141,34 +140,37 @@
     @endforeach
 </table>
 
-{{-- Unités d'enseignement --}}
-@forelse ($ues as $ue)
-    @php $moyenneUe = $ue['moyenne'] ?? null; @endphp
+{{-- Matières (K-12 : un bloc par matière, et non plus par unité d'enseignement) --}}
+@forelse ($matieres as $matiere)
+    @php
+        $moyenneMatiere = $matiere['moyenne'] ?? null;
+        $coefMatiere = rtrim(rtrim(number_format($matiere['coefficient'] ?? 1, 2, ',', ''), '0'), ',');
+    @endphp
     <table class="ue">
         <tr class="ue-head">
             <td>
-                <span class="ue-name">{{ $ue['nom_ue'] ?? 'Unité d\'enseignement' }}</span>
-                @if ($ue['ects'] ?? false)<span class="ue-ects">&nbsp;&nbsp;{{ $ue['ects'] }} ECTS</span>@endif
+                <span class="ue-name">{{ $matiere['nom_matiere'] ?? 'Matière' }}</span>
+                <span class="ue-ects">&nbsp;&nbsp;coef. {{ $coefMatiere }}</span>
             </td>
             <td class="ue-avg-label">Moyenne</td>
-            <td class="ue-avg {{ $moyenneUe !== null && (float) $moyenneUe < 10 ? 'is-low' : '' }}">{{ $note($moyenneUe) }}</td>
+            <td class="ue-avg {{ $moyenneMatiere !== null && (float) $moyenneMatiere < 10 ? 'is-low' : '' }}">{{ $note($moyenneMatiere) }}</td>
         </tr>
         <tr>
             <td colspan="3" style="padding:0">
                 <table class="notes">
                     <thead>
                         <tr>
-                            <th>Matière</th>
-                            <th>Type d'évaluation</th>
+                            <th>Évaluation</th>
+                            <th>Type</th>
                             <th class="c" style="width:52px">Session</th>
                             <th class="r" style="width:42px">Coef.</th>
                             <th class="r" style="width:42px">Note</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($ue['notes'] as $ligne)
+                        @foreach ($matiere['notes'] as $ligne)
                             <tr>
-                                <td>{{ $ligne->evaluation?->matiere?->nom_cours ?? '—' }}</td>
+                                <td>{{ $ligne->evaluation?->nom_evaluation ?: '—' }}</td>
                                 <td class="muted">{{ $ligne->evaluation?->typeEvaluation?->type?->type ?? '—' }}</td>
                                 <td class="c muted">{{ $ligne->session }}</td>
                                 <td class="r muted">{{ $ligne->evaluation?->coefficient ?? '1' }}</td>
@@ -185,7 +187,7 @@
 @endforelse
 
 {{-- Synthèse --}}
-@if ($ues->isNotEmpty() ?? count($ues))
+@if ($matieres->isNotEmpty())
     <table class="synth">
         <tr>
             <td class="is-dark">
@@ -194,9 +196,12 @@
                 <div class="hint">sur 20 — pondérée</div>
             </td>
             <td>
-                <div class="label">ECTS acquis</div>
-                <div class="value">{{ $ectsAcquis !== null ? $ectsAcquis.' / '.($ectsTotal ?? 30) : '—' }}</div>
-                <div class="hint">crédits du semestre</div>
+                <div class="label">Assiduité</div>
+                <div class="value">{{ ($assiduite['absences'] ?? 0) + ($assiduite['retards'] ?? 0) }}</div>
+                <div class="hint">
+                    {{ $assiduite['absences'] ?? 0 }} absence(s)@if (($assiduite['absences_non_justifiees'] ?? 0) > 0) dont {{ $assiduite['absences_non_justifiees'] }} non justifiée(s)@endif,
+                    {{ $assiduite['retards'] ?? 0 }} retard(s)
+                </div>
             </td>
             <td>
                 <div class="label">Rang</div>

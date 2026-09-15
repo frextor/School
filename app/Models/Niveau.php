@@ -40,6 +40,19 @@ class Niveau extends Model
         return $this->hasMany(UniteEnseignement::class, 'id_niveau', 'id_niveau');
     }
 
+    /**
+     * Matières enseignées à ce niveau, avec leur coefficient (K-12).
+     * La matière est un `amos_cours` : c'est la table que `id_matiere` référence
+     * dans toute la notation.
+     */
+    public function matieres()
+    {
+        return $this->belongsToMany(Cours::class, 'matiere_niveau', 'id_niveau', 'id_cours')
+            ->withPivot(['coefficient', 'ordre'])
+            ->withTimestamps()
+            ->orderBy('matiere_niveau.ordre');
+    }
+
     /** Catalogue des options facturables (frais de dossier, assurance, etc.) pour ce niveau. */
     public function options()
     {

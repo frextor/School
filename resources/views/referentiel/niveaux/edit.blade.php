@@ -44,6 +44,61 @@
         </p>
     </form>
 
+    <h2 style="margin-top:2rem">Matières et coefficients</h2>
+    <p>La moyenne générale du bulletin est pondérée par ces coefficients.</p>
+
+    @forelse ($niveau->matieres as $matiere)
+        <form method="post" action="{{ route('referentiel.niveaux.matieres.update', [$niveau, $matiere->id_cours]) }}"
+              style="display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;margin-bottom:0.5rem;padding:0.5rem;border:1px solid #e5e5e5;border-radius:6px">
+            @csrf
+            <input type="hidden" name="_method" id="mat-method-{{ $matiere->id_cours }}" value="PUT">
+
+            <span style="flex:1 1 220px">
+                <label>Matière</label><br>
+                <strong>{{ $matiere->nom_cours }}</strong>
+            </span>
+            <span>
+                <label>Coefficient</label><br>
+                <input type="number" step="0.5" min="0.5" max="20" name="coefficient" value="{{ $matiere->pivot->coefficient }}" required style="width:6rem">
+            </span>
+            <span>
+                <label>Ordre</label><br>
+                <input type="number" name="ordre" value="{{ $matiere->pivot->ordre }}" style="width:4rem">
+            </span>
+
+            <button type="submit">Enregistrer</button>
+            <button type="submit"
+                    formaction="{{ route('referentiel.niveaux.matieres.destroy', [$niveau, $matiere->id_cours]) }}"
+                    onclick="document.getElementById('mat-method-{{ $matiere->id_cours }}').value='DELETE'; return confirm('Retirer cette matière du niveau ?')">
+                Retirer
+            </button>
+        </form>
+    @empty
+        <p>Aucune matière rattachée à ce niveau : la moyenne générale ne pourra pas être pondérée.</p>
+    @endforelse
+
+    <h3 style="margin-top:1rem">Ajouter une matière</h3>
+    <form method="post" action="{{ route('referentiel.niveaux.matieres.store', $niveau) }}">
+        @csrf
+
+        <label for="mat_cours">Matière</label>
+        <select name="id_cours" id="mat_cours" required>
+            @foreach ($matieresDisponibles as $cours)
+                <option value="{{ $cours->id_cours }}">{{ $cours->nom_cours }}</option>
+            @endforeach
+        </select>
+
+        <label for="mat_coef">Coefficient</label>
+        <input type="number" step="0.5" min="0.5" max="20" name="coefficient" id="mat_coef" value="1" required>
+
+        <label for="mat_ordre">Ordre d'affichage</label>
+        <input type="number" name="ordre" id="mat_ordre" min="1">
+
+        <p style="margin-top:1rem">
+            <button type="submit" class="btn">Ajouter</button>
+        </p>
+    </form>
+
     <h2 style="margin-top:2rem">Options facturables</h2>
     <p>Proposées (avec leur montant, modifiable au cas par cas) lors de la création d'un règlement pour un élève de ce niveau.</p>
 

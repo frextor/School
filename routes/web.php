@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EntrepriseAuthController;
 use App\Http\Controllers\Auth\IntervenantAuthController;
 use App\Http\Controllers\AbsenceController;
 use App\Http\Controllers\EcheanceController;
+use App\Http\Controllers\MatiereNiveauController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\TuteurController;
 use App\Http\Controllers\AnnotationController;
@@ -344,6 +345,11 @@ Route::middleware('auth:admin')->group(function () {
     // Référentiel pédagogique (socle UE / Cours / Matières / Niveaux, portage partiel de Referentiel.php).
     Route::prefix('referentiel')->name('referentiel.')->group(function () {
         Route::resource('niveaux', NiveauController::class)->except('show');
+        Route::prefix('niveaux/{niveau}/matieres')->name('niveaux.matieres.')->group(function () {
+            Route::post('/', [MatiereNiveauController::class, 'store'])->name('store');
+            Route::put('{idCours}', [MatiereNiveauController::class, 'update'])->name('update');
+            Route::delete('{idCours}', [MatiereNiveauController::class, 'destroy'])->name('destroy');
+        });
         Route::prefix('niveaux/{niveau}/options')->name('niveaux.options.')->group(function () {
             Route::post('/', [NiveauOptionController::class, 'store'])->name('store');
             Route::put('{option}', [NiveauOptionController::class, 'update'])->name('update');

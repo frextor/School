@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AbsenceEleve;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Etablissement;
@@ -27,8 +28,11 @@ use Illuminate\View\View;
  * - Les ECTS par UE (`get_ects()` legacy) ne sont pas affichés : ils
  *   dépendent de la table `referentiel_classe` (association cours↔classe),
  *   volontairement différée avec le reste de Referentiel.php.
- * - L'assiduité (`get_assiduite()`, table `absence_eleve`) n'est pas
- *   incluse : module Assiduité non migré.
+ * - L'assiduité est désormais incluse (absences, absences non justifiées,
+ *   retards), le module Assiduité ayant été ajouté depuis.
+ * - Orientation K-12 : les notes sont regroupées par **matière** et non plus
+ *   par unité d'enseignement (découpage propre au supérieur), et la moyenne
+ *   générale est pondérée par le coefficient de matière défini sur le niveau.
  */
 class BulletinV2Controller extends Controller
 {
@@ -84,12 +88,34 @@ class BulletinV2Controller extends Controller
             ->where('annee', $annee)
             ->when($semestre, fn ($q) => $q->where('semestre', $semestre))
             ->get()
-            ->groupBy('id_ue');
+            ->groupBy('id_matiere');
     }
 
     /**
-     * Portage de `generer()` — calcule les moyennes par UE (moyenne pondérée
-     * par coefficient de type d'évaluation) et génère le PDF du bulletin.
+     * Récapitulatif d'assiduité de la période du bulletin.
+     * Les absences existent depuis le module Assiduité ; le bulletin les
+     * affiche désormais, ce que l'en-tête de cette classe annonçait comme
+     * impossible tant que le module n'existait pas.
+     */
+    private function assiduite(Eleve $eleve, int $annee, ?int $semestre): array
+    {
+        $absences = AbsenceEleve::where('id_eleve', $eleve->id_eleve)
+            ->when($semestre, fn ($q) => $q->where('semestre', $semestre))
+            ->whereYear('date_absence', '>=', $annee)
+            ->whereYear('date_absence', '<=', $annee + 1)
+            ->get();
+
+        return [
+            'absences' => $absences->filter(fn ($a) => $a->nature === AbsenceEleve::NATURE_ABSENCE)->count(),
+            'absences_non_justifiees' => $absences->filter(fn ($a) => $a->nature === AbsenceEleve::NATURE_ABSENCE && ! $a->justifie)->count(),
+            'retards' => $absences->filter(fn ($a) => $a->nature === AbsenceEleve::NATURE_RETARD)->count(),
+        ];
+    }
+
+    /**
+     * Portage de `generer()` — calcule la moyenne de chaque matière (pondérée
+     * par le coefficient du type d'évaluation) puis la moyenne générale
+     * (pondérée par le coefficient de matière du niveau), et génère le PDF.
      */
     public function generate(Request $request): RedirectResponse
     {
@@ -103,13 +129,20 @@ class BulletinV2Controller extends Controller
         ]);
 
         $eleve = Eleve::with('contact')->findOrFail($data['id_eleve']);
-        $notesParUe = $this->notesEleve($eleve, $data['annee'], $data['semestre'] ?? null);
+        $notesParMatiere = $this->notesEleve($eleve, $data['annee'], $data['semestre'] ?? null);
 
-        $ues = $notesParUe->map(function ($notes, $idUe) {
+        // Coefficients de matière définis pour le niveau du bulletin (K-12).
+        $coefficients = Niveau::find($data['id_niveau'])?->matieres
+            ->mapWithKeys(fn ($m) => [$m->id_cours => (float) $m->pivot->coefficient])
+            ?? collect();
+
+        $matieres = $notesParMatiere->map(function ($notes, $idMatiere) use ($coefficients) {
             $premiere = $notes->first();
             $totalPoints = 0;
             $totalCoef = 0;
 
+            // Moyenne de la matière : pondérée par le coefficient du **type**
+            // d'évaluation (un examen pèse plus qu'un contrôle continu).
             foreach ($notes as $note) {
                 $coef = (float) ($note->evaluation?->typeEvaluation?->coef ?? 1);
                 $valeur = is_numeric($note->note) ? (float) $note->note : null;
@@ -121,24 +154,31 @@ class BulletinV2Controller extends Controller
             }
 
             return [
-                'nom_ue' => $premiere->evaluation?->unite?->nom_unite_enseignement,
+                'nom_matiere' => $premiere->evaluation?->matiere?->nom_cours ?? 'Matière',
                 'notes' => $notes,
+                'coefficient' => $coefficients[$idMatiere] ?? 1.0,
                 'moyenne' => $totalCoef > 0 ? round($totalPoints / $totalCoef, 2) : null,
             ];
-        })->values();
+        })->sortBy('nom_matiere')->values();
 
-        // Moyenne générale = moyenne simple des moyennes d'UE (pas de pondération ECTS :
-        // dépend de referentiel_classe, volontairement différé — voir en-tête de classe).
-        $moyennesUe = $ues->pluck('moyenne')->filter(fn ($m) => $m !== null);
+        // Moyenne générale : pondérée par le coefficient de chaque **matière**
+        // (Maths coef 4, Éducation islamique coef 1...), comme un bulletin marocain.
+        // Les matières sans note ne comptent pas, sinon elles tireraient la moyenne vers le bas.
+        $notees = $matieres->filter(fn ($m) => $m['moyenne'] !== null);
+        $sommeCoefs = $notees->sum('coefficient');
+        $moyenneGenerale = $sommeCoefs > 0
+            ? round($notees->sum(fn ($m) => $m['moyenne'] * $m['coefficient']) / $sommeCoefs, 2)
+            : null;
 
         $pdf = Pdf::loadView('bulletin-v2.pdf', [
             'eleve' => $eleve,
-            'ues' => $ues,
+            'matieres' => $matieres,
             'annee' => $data['annee'],
             'semestre' => $data['semestre'] ?? null,
             'session' => $data['session'] ?? 0,
             'etablissement' => Etablissement::find($data['id_etablissement']),
-            'moyenneGenerale' => $moyennesUe->isNotEmpty() ? round($moyennesUe->avg(), 2) : null,
+            'moyenneGenerale' => $moyenneGenerale,
+            'assiduite' => $this->assiduite($eleve, $data['annee'], $data['semestre'] ?? null),
         ]);
 
         $bulletin = SnBulletin::create([

@@ -53,8 +53,23 @@ class ReferentielMarocSeeder extends Seeder
         ]],
     ];
 
+    /**
+     * Types d'évaluation du système marocain. Sans au moins un type, aucune
+     * évaluation ne peut être créée (contrainte sur `amos_sn_evaluations_existantes`),
+     * donc aucune note saisie : une installation neuve était inutilisable.
+     */
+    private const TYPES_EVALUATION = [
+        'Contrôle continu',
+        'Activités intégrées',
+        'Examen de fin de semestre',
+    ];
+
     public function run(): void
     {
+        foreach (self::TYPES_EVALUATION as $type) {
+            DB::table('amos_type_evaluation')->updateOrInsert(['type' => $type]);
+        }
+
         DB::transaction(function () {
             // Ordre de progression global, tous cycles confondus : sert à chaîner
             // `id_niveau_future` d'un cycle au suivant (GS → 1AEP, 6AEP → 1AC…).
