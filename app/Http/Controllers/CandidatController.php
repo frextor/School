@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\Niveau;
+use App\Models\ResultatEpreuveEleve;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -43,11 +46,61 @@ class CandidatController extends Controller
         return view('candidats.index', ['candidats' => $candidats, 'filtres' => $request->only(['recherche', 'sans_epreuve', 'archives'])]);
     }
 
+    /** Décisions valant admission (voir ResultatEpreuveEleve::DECISION_*) — la seule condition pour inscrire un candidat comme élève. */
+    private const DECISIONS_ADMIS = [
+        ResultatEpreuveEleve::DECISION_ACCEPTE,
+        ResultatEpreuveEleve::DECISION_ACCEPTE_NIVEAU_INFERIEUR,
+        ResultatEpreuveEleve::DECISION_ACCEPTE_AVEC_ENTREPRISE,
+    ];
+
     public function show(Eleve $candidat): View
     {
         $candidat->load(['contact', 'niveau', 'epreuvesInscriptions.epreuve', 'resultatsEpreuves.epreuve']);
 
-        return view('candidats.show', ['candidat' => $candidat]);
+        return view('candidats.show', [
+            'candidat' => $candidat,
+            'estAdmis' => $candidat->resultatsEpreuves->contains(fn ($r) => in_array($r->decision, self::DECISIONS_ADMIS, true)),
+            'niveaux' => Niveau::orderBy('nom_niveau')->get(),
+            'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'id_niveau']),
+        ]);
+    }
+
+    /**
+     * Portage du passage manuel candidat -> élève (pas d'équivalent legacy direct :
+     * le legacy recalculait le profil automatiquement au règlement du premier
+     * versement — simplifié ici en action explicite, cf. tête de classe pour le
+     * reste des simplifications du module paiements).
+     */
+    public function inscrireEleve(Request $request, Eleve $candidat): RedirectResponse
+    {
+        if ($candidat->profil !== Eleve::PROFIL_CANDIDAT) {
+            return back()->withErrors(['profil' => 'Ce dossier n\'est plus un candidat.']);
+        }
+
+        $estAdmis = $candidat->resultatsEpreuves()
+            ->whereIn('decision', self::DECISIONS_ADMIS)
+            ->exists();
+
+        if (! $estAdmis) {
+            return back()->withErrors(['decision' => "Ce candidat n'a pas de résultat d'admission favorable — impossible de l'inscrire comme élève."]);
+        }
+
+        $data = $request->validate([
+            'id_niveau' => ['required', 'integer', 'exists:amos_niveaux,id_niveau'],
+            'id_classe' => ['required', 'integer', 'exists:amos_classe,id_classe'],
+        ]);
+
+        $candidat->update([
+            'profil' => Eleve::PROFIL_ELEVE,
+            'id_niveau' => $data['id_niveau'],
+            'id_classe' => $data['id_classe'],
+            'visible' => true, // convention Eleve (différente de Candidat !) : visible=true = actif, visible=false = masqué (voir EleveController::destroy)
+            'date_inscription' => $candidat->date_inscription ?? now(),
+        ]);
+
+        return redirect()
+            ->route('eleves.show', $candidat)
+            ->with('status', "{$candidat->contact?->nom_complet} est maintenant inscrit comme élève.");
     }
 
     /** Portage de `archiver()`. */

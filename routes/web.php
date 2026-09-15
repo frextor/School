@@ -272,6 +272,7 @@ Route::middleware('auth:admin')->group(function () {
         Route::post('{candidat}/archive', [CandidatController::class, 'archive'])->name('archive');
         Route::post('{candidat}/archive-attente-epreuve', [CandidatController::class, 'archiveAttenteEpreuve'])->name('archive-attente-epreuve');
         Route::post('{candidat}/unarchive', [CandidatController::class, 'unarchive'])->name('unarchive');
+        Route::post('{candidat}/inscrire-eleve', [CandidatController::class, 'inscrireEleve'])->name('inscrire-eleve');
     });
 
     Route::resource('epreuves', EpreuveAdmissionController::class)
