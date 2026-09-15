@@ -201,6 +201,10 @@ Route::middleware('auth:admin')->group(function () {
     // Documents administratifs délivrés depuis la fiche élève.
     Route::get('eleves/{eleve}/certificat-scolarite', [DocumentEleveController::class, 'certificatScolarite'])
         ->name('eleves.certificat-scolarite');
+    Route::get('eleves/{eleve}/certificat-radiation', [DocumentEleveController::class, 'certificatRadiation'])
+        ->name('eleves.certificat-radiation');
+    Route::get('echeances/{echeance}/recu', [DocumentEleveController::class, 'recuPaiement'])
+        ->name('echeances.recu');
 
     // Parents / tuteurs : gérés depuis l'onglet « Famille » de la fiche élève.
     Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');

@@ -128,6 +128,11 @@
                             <button type="button" class="row-btn" data-regler="{{ $echeance->id_echeance }}" title="Enregistrer un règlement">
                                 @include('partials.icon', ['n' => 'card', 's' => 14, 'c' => '#585e72'])
                             </button>
+                            @if ((float) $echeance->montant_regle > 0)
+                                <a href="{{ route('echeances.recu', $echeance) }}" class="row-btn" title="Reçu de paiement" target="_blank" rel="noopener">
+                                    @include('partials.icon', ['n' => 'printer', 's' => 14, 'c' => '#585e72'])
+                                </a>
+                            @endif
                         </td>
                     </tr>
                     <tr class="reg-row" id="reg-{{ $echeance->id_echeance }}" hidden>
