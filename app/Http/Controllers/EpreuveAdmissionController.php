@@ -81,6 +81,7 @@ class EpreuveAdmissionController extends Controller
         $epreuve->load([
             'formations',
             'inscriptions.eleve.contact',
+            'inscriptions.eleve.niveau',
             'resultats',
         ]);
 

@@ -47,12 +47,23 @@ class PaiementController extends Controller
 
     public function create(Eleve $eleve): View
     {
+        $eleve->load(['contact', 'niveau', 'classe.etablissement']);
+
         $optionsDisponibles = NiveauxOptions::where('id_niveau', $eleve->id_niveau)
             ->where('annee', $eleve->annee_formation ?: date('Y'))
             ->orderBy('ordre')
             ->get();
 
-        return view('paiements.create', ['eleve' => $eleve, 'optionsDisponibles' => $optionsDisponibles]);
+        // Somme des versements déjà encaissés, tous règlements confondus pour cet élève —
+        // affichée dans l'encadré "Situation de l'élève" du formulaire.
+        $dejaEncaisse = ChequePaiement::whereHas('paiement', fn ($q) => $q->where('id_eleve', $eleve->id_eleve))
+            ->sum('montant_paiement');
+
+        return view('paiements.create', [
+            'eleve' => $eleve,
+            'optionsDisponibles' => $optionsDisponibles,
+            'dejaEncaisse' => (float) $dejaEncaisse,
+        ]);
     }
 
     /** Portage de `add_reglements()`. */
@@ -65,6 +76,7 @@ class PaiementController extends Controller
             'id_contrat' => ['nullable', 'integer'],
             'id_niveau' => ['nullable', 'integer'],
             'annee_rentree' => ['nullable', 'integer'],
+            'date' => ['nullable', 'date'],
             'mode_paiement' => ['nullable', 'in:CB,CHEQUE,VIREMENT'],
             'statut_paiement' => ['required', 'in:paye,accord_opco,cas_particulier'],
             'options' => ['nullable', 'array'],
@@ -78,7 +90,7 @@ class PaiementController extends Controller
                 'id_eleve' => $eleve->id_eleve,
                 'id_eleve_parent' => $eleve->id_eleve_parent ?: $eleve->id_eleve,
                 'titre' => $data['titre'],
-                'date' => now(),
+                'date' => $data['date'] ?? now(),
                 'date_modification' => now(),
                 'commentaire' => $data['commentaire'] ?? '',
                 'id_etablissement' => $data['id_etablissement'] ?? 0,
