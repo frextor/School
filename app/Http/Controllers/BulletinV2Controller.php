@@ -53,6 +53,10 @@ class BulletinV2Controller extends Controller
         return view('bulletin-v2.create', [
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'niveaux' => Niveau::orderBy('nom_niveau')->get(),
+            // Chargées à plat puis filtrées côté client par niveau (cascade
+            // niveau -> classe -> élève, voir studentsForClass) : pas besoin
+            // d'ID élève à saisir à la main.
+            'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'id_niveau']),
         ]);
     }
 
