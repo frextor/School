@@ -73,6 +73,9 @@ class NiveauController extends Controller
             'matieresDisponibles' => Cours::whereNotIn('id_cours', $niveau->matieres()->pluck('amos_cours.id_cours'))
                 ->orderBy('nom_cours')
                 ->get(),
+            // Encadré « Ce niveau » de l'écran à onglets.
+            'elevesCount' => $niveau->eleves()->where('profil', \App\Models\Eleve::PROFIL_ELEVE)->where('visible', true)->count(),
+            'classesCount' => $niveau->classes()->count(),
         ]);
     }
 

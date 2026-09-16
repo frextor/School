@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Classe;
 use App\Models\Cours;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
+use App\Models\GroupeEleve;
 use App\Models\SnTypeEvaluation;
 use App\Models\UniteEnseignement;
 use Illuminate\Http\RedirectResponse;
@@ -41,6 +43,9 @@ class EvaluationController extends Controller
             'unites' => UniteEnseignement::orderBy('nom_unite_enseignement')->get(),
             'cours' => Cours::orderBy('nom_cours')->get(),
             'typesEvaluation' => SnTypeEvaluation::with('type')->get(),
+            // Vrai sélecteur classe / groupe plutôt qu'un identifiant à saisir à la main.
+            'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe']),
+            'groupes' => GroupeEleve::orderBy('nom_groupe')->get(['id_groupe', 'nom_groupe']),
         ]);
     }
 
@@ -49,6 +54,7 @@ class EvaluationController extends Controller
         $data = $this->validerDonnees($request);
         $data['boolean_facultatif'] = $request->boolean('boolean_facultatif');
         $data['id_evaluation_parent'] = 0;
+        $data['id_ue'] = $data['id_ue'] ?? 0;
 
         $evaluation = Evaluation::create($data);
 
@@ -71,6 +77,7 @@ class EvaluationController extends Controller
     public function update(Request $request, Evaluation $evaluation): RedirectResponse
     {
         $data = $this->validerDonnees($request);
+        $data['id_ue'] = $data['id_ue'] ?? 0;
         $data['boolean_facultatif'] = $request->boolean('boolean_facultatif');
 
         $evaluation->update($data);
@@ -98,7 +105,11 @@ class EvaluationController extends Controller
             'semestre' => ['required', 'integer'],
             'id_referentiel' => ['required', 'integer'],
             'referentiel' => ['required', 'in:classe,groupe'],
-            'id_ue' => ['required', 'integer', 'exists:amos_unite_enseignement,id_unite_enseignement'],
+            // Facultative depuis le passage au K-12 : on note par matière, l'unité
+            // d'enseignement est un découpage du supérieur. Les contraintes en base
+            // ont été levées en phase 5 ; cette règle applicative les exigeait encore,
+            // ce qui interdisait toute création d'évaluation depuis l'interface.
+            'id_ue' => ['nullable', 'integer', 'exists:amos_unite_enseignement,id_unite_enseignement'],
             'id_matiere' => ['required', 'integer', 'exists:amos_cours,id_cours'],
             'id_type_evaluation' => ['required', 'integer', 'exists:amos_sn_type_evaluation,id_type_evaluation'],
             'nom_evaluation' => ['required', 'string', 'max:50'],
