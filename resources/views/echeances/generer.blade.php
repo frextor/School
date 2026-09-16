@@ -62,13 +62,24 @@
                 <select name="classe">
                     <option value="">-- Choisir --</option>
                     @foreach ($classes as $c)
-                        <option value="{{ $c->id_classe }}" @selected($classeChoisie === $c->id_classe)>{{ $c->classe }}</option>
+                        <option value="{{ $c->id_classe }}" data-niveau="{{ $c->id_niveau }}" @selected($classeChoisie === $c->id_classe)>{{ $c->classe }}</option>
                     @endforeach
                 </select>
             </label>
             <label class="stack" data-champ="eleve" hidden>
-                <span>N° de l'élève</span>
-                <input type="number" name="id_eleve" placeholder="Identifiant de l'élève">
+                <span>Classe de l'élève</span>
+                <select id="classe-eleve">
+                    <option value="">-- Choisir --</option>
+                    @foreach ($classes as $c)
+                        <option value="{{ $c->id_classe }}" data-niveau="{{ $c->id_niveau }}">{{ $c->classe }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="stack" data-champ="eleve" hidden>
+                <span>Élève</span>
+                <select name="id_eleve" id="select-eleve" disabled>
+                    <option value="">-- Choisir une classe d'abord --</option>
+                </select>
             </label>
             <label class="stack">
                 <span>Année scolaire</span>
@@ -114,6 +125,13 @@
             </label>
         </div>
 
+        <div class="options-bloc" id="options-bloc" hidden>
+            <span class="stack-label">Options facturables du niveau</span>
+            <p class="options-aide">Cochez les options à ajouter à l'échéancier. Le montant du catalogue reste modifiable ; une option mensuelle génère une ligne par mois.</p>
+            <div id="options-liste"></div>
+        </div>
+        <p class="options-vide" id="options-vide" hidden>Aucune option facturable définie pour ce niveau (configurable depuis Référentiel › Niveaux).</p>
+
         <div class="recap">
             <span class="recap-label">Total annuel par élève</span>
             <span class="recap-value" data-total>—</span>
@@ -156,6 +174,15 @@
     }
     .recap-label { font-size: 12.5px; font-weight: 600; color: var(--brand-deep); }
     .recap-value { margin-left: auto; font-size: 22px; font-weight: 700; color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+    .options-bloc { margin-top: 6px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 11px; }
+    .options-aide { margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
+    .options-vide { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); }
+    .opt { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-soft); }
+    .opt:first-child { border-top: 0; }
+    .opt input[type="checkbox"] { width: 15px; height: 15px; margin: 0; }
+    .opt-titre { flex: 1; font-size: 13px; font-weight: 600; }
+    .opt-per { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+    .opt input[type="number"] { width: 110px; max-width: none; text-align: right; }
     .check { display: block; font-size: 13px; }
     .check-hint { display: block; font-size: 11.5px; color: var(--muted); margin-left: 23px; }
 </style>
@@ -169,25 +196,96 @@
                     c.classList.toggle('is-on', c.querySelector('input').checked);
                 });
                 document.querySelector('[data-champ="classe"]').hidden = radio.value !== 'classe';
-                document.querySelector('[data-champ="eleve"]').hidden = radio.value !== 'eleve';
+                document.querySelectorAll('[data-champ="eleve"]').forEach(function (el) { el.hidden = radio.value !== 'eleve'; });
+                afficherOptions(radio.value === 'classe' ? niveauDe(form.classe) : niveauDe(classeEleve));
             });
         });
 
-        // Total annuel calculé en direct
+        var form = document.querySelector('.gen-form');
         var euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MAD' });
-        var champs = document.querySelectorAll('[data-calc]');
         var total = document.querySelector('[data-total]');
+        var optionsParNiveau = @json($optionsParNiveau);
+        var bloc = document.getElementById('options-bloc');
+        var liste = document.getElementById('options-liste');
+        var vide = document.getElementById('options-vide');
 
+        // Total annuel calculé en direct, options comprises
         function calcul() {
-            var form = document.querySelector('.gen-form');
             var inscription = parseFloat(form.frais_inscription.value) || 0;
             var mensualite = parseFloat(form.montant_mensualite.value) || 0;
             var nb = parseInt(form.nb_mensualites.value, 10) || 0;
             var somme = inscription + mensualite * nb;
+            liste.querySelectorAll('.opt').forEach(function (row) {
+                var check = row.querySelector('input[type="checkbox"]');
+                var montant = parseFloat(row.querySelector('input[type="number"]').value) || 0;
+                if (check.checked) somme += row.dataset.mensuelle === '1' ? montant * nb : montant;
+            });
             total.textContent = somme > 0 ? euro.format(somme) : '—';
         }
 
-        champs.forEach(function (c) { c.addEventListener('input', calcul); });
+        // Options du niveau de la classe (ou de l'élève) choisi
+        function afficherOptions(idNiveau) {
+            var options = optionsParNiveau[idNiveau] || [];
+            liste.innerHTML = '';
+            bloc.hidden = !options.length;
+            vide.hidden = !!options.length || !idNiveau;
+            options.forEach(function (o) {
+                var row = document.createElement('label');
+                row.className = 'opt';
+                row.dataset.mensuelle = o.mensuelle ? '1' : '0';
+                var check = document.createElement('input');
+                check.type = 'checkbox'; check.name = 'options[]'; check.value = o.id;
+                var titre = document.createElement('span');
+                titre.className = 'opt-titre'; titre.textContent = o.titre;
+                var per = document.createElement('span');
+                per.className = 'opt-per'; per.textContent = o.mensuelle ? '/ mois' : '/ an';
+                titre.appendChild(per);
+                var montant = document.createElement('input');
+                montant.type = 'number'; montant.step = '0.01'; montant.min = '0';
+                montant.name = 'montant_option[' + o.id + ']'; montant.value = o.montant;
+                check.addEventListener('change', calcul);
+                montant.addEventListener('input', calcul);
+                row.appendChild(check); row.appendChild(titre); row.appendChild(montant);
+                row.appendChild(document.createTextNode(' DH'));
+                liste.appendChild(row);
+            });
+            calcul();
+        }
+
+        function niveauDe(select) {
+            var opt = select.options[select.selectedIndex];
+            return opt ? opt.dataset.niveau : null;
+        }
+
+        // Cible classe : options selon le niveau de la classe
+        form.classe.addEventListener('change', function () { afficherOptions(niveauDe(form.classe)); });
+
+        // Cible élève : cascade classe -> élève, options selon le niveau de la classe
+        var classeEleve = document.getElementById('classe-eleve');
+        var selectEleve = document.getElementById('select-eleve');
+        classeEleve.addEventListener('change', function () {
+            afficherOptions(niveauDe(classeEleve));
+            selectEleve.innerHTML = '<option value="">Chargement…</option>';
+            selectEleve.disabled = true;
+            if (!classeEleve.value) return;
+            fetch('{{ url('bulletin-v2/classes') }}/' + classeEleve.value + '/eleves')
+                .then(function (r) { return r.json(); })
+                .then(function (eleves) {
+                    selectEleve.innerHTML = '';
+                    var first = document.createElement('option');
+                    first.value = ''; first.textContent = eleves.length ? '-- Choisir --' : 'Aucun élève dans cette classe';
+                    selectEleve.appendChild(first);
+                    eleves.forEach(function (e) {
+                        var o = document.createElement('option');
+                        o.value = e.id_eleve; o.textContent = (e.nom || '') + ' ' + (e.prenom || '');
+                        selectEleve.appendChild(o);
+                    });
+                    selectEleve.disabled = !eleves.length;
+                });
+        });
+
+        document.querySelectorAll('[data-calc]').forEach(function (c) { c.addEventListener('input', calcul); });
+        if (form.classe.value) afficherOptions(niveauDe(form.classe));
         calcul();
     })();
 </script>

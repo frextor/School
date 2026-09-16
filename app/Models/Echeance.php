@@ -19,6 +19,7 @@ class Echeance extends Model
 
     public const TYPE_INSCRIPTION = 'inscription';
     public const TYPE_MENSUALITE = 'mensualite';
+    public const TYPE_OPTION = 'option';
     public const TYPE_AUTRE = 'autre';
 
     public const STATUT_PAYEE = 'payee';

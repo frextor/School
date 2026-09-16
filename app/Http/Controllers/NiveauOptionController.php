@@ -22,6 +22,7 @@ class NiveauOptionController extends Controller
             'titre' => ['required', 'string', 'max:64'],
             'id_objet_paiement' => ['required', 'integer', 'exists:amos_objet_paiement,id_objet_paiement'],
             'montant' => ['required', 'numeric', 'min:0'],
+            'periodicite' => ['required', 'in:annuelle,mensuelle'],
             'annee' => ['required', 'integer'],
             'ordre' => ['nullable', 'integer'],
         ]);
@@ -31,6 +32,7 @@ class NiveauOptionController extends Controller
             'id_objet_paiement' => $data['id_objet_paiement'],
             'titre' => $data['titre'],
             'montant' => $data['montant'],
+            'periodicite' => $data['periodicite'],
             'annee' => $data['annee'],
             'ordre' => $data['ordre'] ?? 0,
         ]);
@@ -46,6 +48,7 @@ class NiveauOptionController extends Controller
             'titre' => ['required', 'string', 'max:64'],
             'id_objet_paiement' => ['required', 'integer', 'exists:amos_objet_paiement,id_objet_paiement'],
             'montant' => ['required', 'numeric', 'min:0'],
+            'periodicite' => ['required', 'in:annuelle,mensuelle'],
             'annee' => ['required', 'integer'],
             'ordre' => ['nullable', 'integer'],
         ]);

@@ -17,14 +17,28 @@ class NiveauxOptions extends Model
     protected $primaryKey = 'id_niveau_option';
     public $timestamps = false;
 
+    public const PERIODICITE_ANNUELLE = 'annuelle';
+    public const PERIODICITE_MENSUELLE = 'mensuelle';
+
+    public const PERIODICITES = [
+        self::PERIODICITE_ANNUELLE => 'Annuelle (une fois)',
+        self::PERIODICITE_MENSUELLE => 'Mensuelle (chaque mois)',
+    ];
+
     protected $fillable = [
         'id_niveau',
         'id_objet_paiement',
         'titre',
         'montant',
+        'periodicite',
         'ordre',
         'annee',
     ];
+
+    public function getMensuelleAttribute(): bool
+    {
+        return $this->periodicite === self::PERIODICITE_MENSUELLE;
+    }
 
     public function niveau()
     {

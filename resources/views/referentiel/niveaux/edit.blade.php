@@ -246,6 +246,11 @@
                                 <input type="number" step="0.01" name="montant" value="{{ $option->montant }}" required>
                                 <span class="opt-euro">DH</span>
                             </span>
+                            <select name="periodicite" class="opt-periode" title="Périodicité">
+                                @foreach (\App\Models\NiveauxOptions::PERIODICITES as $valeur => $libelle)
+                                    <option value="{{ $valeur }}" @selected(($option->periodicite ?? 'annuelle') === $valeur)>{{ $valeur === 'mensuelle' ? '/ mois' : '/ an' }}</option>
+                                @endforeach
+                            </select>
 
                             <button type="submit" class="save" title="Enregistrer l'option">
                                 @include('partials.icon', ['n' => 'check-simple', 's' => 14, 'c' => '#585e72', 'w' => 2.2])
@@ -276,6 +281,10 @@
                             <input type="number" step="0.01" name="montant" required placeholder="0">
                             <span class="opt-euro">DH</span>
                         </span>
+                        <select name="periodicite" class="opt-periode" title="Périodicité" required>
+                            <option value="annuelle">/ an</option>
+                            <option value="mensuelle">/ mois</option>
+                        </select>
                         <input type="number" name="annee" value="{{ $anneeCourante }}" required class="year-input" aria-label="Année">
                         <input type="hidden" name="ordre" value="{{ $options->count() }}">
                         <button type="submit" class="btn">
@@ -506,6 +515,7 @@
     .side-action.is-danger { color: var(--danger-dark); border-color: #fecaca; }
     .side-action.is-danger:hover { background: var(--danger-bg); color: var(--danger-dark); border-color: #fecaca; }
     .side-action.is-danger svg { stroke: var(--danger-dark); }
+    .opt-periode { width: auto; max-width: none; padding: 9px 10px; border-radius: 9px; font-size: 12.5px; }
 </style>
 
 <script>
