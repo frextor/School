@@ -70,6 +70,9 @@ class ClasseController extends Controller
     {
         $data = $request->validate([
             'classe' => ['required', 'string'],
+            // Colonne NOT NULL varchar(100) : le formulaire l'expose, elle doit être validée
+            // sinon elle est silencieusement ignorée par update().
+            'code_classe' => ['required', 'string', 'max:100'],
             'id_niveau' => ['required', 'integer', 'exists:amos_niveaux,id_niveau'],
             'id_etablissement' => ['required', 'integer', 'exists:amos_etablissement,id_etablissement'],
             'couleur' => ['nullable', 'string', 'max:10'],
