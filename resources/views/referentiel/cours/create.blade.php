@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Nouveau cours')
+@section('title', 'Nouvelle matière')
 
 @section('content')
     <a href="{{ route('referentiel.cours.index') }}">&larr; Retour</a>
-    <h1>Nouveau cours</h1>
+    <h1>Nouvelle matière</h1>
 
     @if ($errors->any())
         <div class="status" style="background:#ffecec;border-color:#f3b4b4">

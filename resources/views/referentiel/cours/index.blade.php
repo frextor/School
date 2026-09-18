@@ -1,25 +1,25 @@
 @extends('layouts.app')
 
-@section('title', 'Cours')
+@section('title', 'Matières')
 
 @section('content')
 <div class="crumb">
     <a href="{{ route('admin.dashboard') }}">Accueil</a>
     <span class="sep">/</span>
-    <span class="current">Cours</span>
+    <span class="current">Matières</span>
 </div>
 
 <div class="page-head">
     <div>
         <div class="title-row">
-            <h1>Cours</h1>
+            <h1>Matières</h1>
             <span class="badge badge-brand">{{ number_format($cours->total(), 0, ',', ' ') }} cours</span>
         </div>
         <p class="page-sub">Cours rattachés aux unités d'enseignement.</p>
     </div>
     <div class="page-actions">
         <a class="btn" href="{{ route('referentiel.cours.create') }}">
-            @include('partials.icon', ['n' => 'plus', 's' => 15, 'w' => 2.2])Nouveau cours
+            @include('partials.icon', ['n' => 'plus', 's' => 15, 'w' => 2.2])Nouvelle matière
         </a>
     </div>
 </div>

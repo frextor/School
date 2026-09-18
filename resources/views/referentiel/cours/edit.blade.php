@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier cours')
+@section('title', 'Modifier la matière')
 
 @section('content')
     <a href="{{ route('referentiel.cours.index') }}">&larr; Retour</a>

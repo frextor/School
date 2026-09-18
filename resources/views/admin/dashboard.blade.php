@@ -5,48 +5,43 @@
 @section('content')
 @php
     // Raccourcis regroupés par domaine. Chaque entrée : [route, libellé].
-    // Orientation K-12 marocain : les écrans hérités du supérieur (candidats,
-    // épreuves d'admission, entreprises/alternance) ne sont plus proposés ici,
-    // mais leurs routes restent actives (voir partials/admin-nav.blade.php).
+    // Mêmes domaines et libellés que le menu latéral (partials/admin-nav.blade.php).
     $domaines = [
         ['Scolarité', 'indigo', 'users', [
             ['eleves.index', 'Élèves'],
-            // Pas de "paiements.index" ici : la route existe mais requiert un {eleve}
-            // (les règlements se consultent depuis la fiche élève, pas de liste globale).
             ['referentiel.classes.index', 'Classes'],
-            ['referentiel.niveaux.index', 'Niveaux & cycles'],
-            ['referentiel.groupes.index', 'Groupes'],
             ['absences.index', 'Assiduité'],
-            ['echeances.index', 'Échéanciers & impayés'],
+            ['absences.appel', "Faire l'appel"],
         ]],
         ['Inscriptions & familles', 'teal', 'contact', [
-            ['contacts.index', 'Familles / prospects'],
-            ['taches.index', 'Tâches / relances'],
-            ['import.index', 'Import de contacts'],
+            ['contacts.index', 'Familles & prospects'],
+            ['candidats.index', 'Candidats'],
+            ['epreuves.index', "Épreuves d'admission"],
+            ['taches.index', 'Tâches & relances'],
         ]],
-        ['Pédagogie', 'amber', 'book', [
+        ['Finances', 'amber', 'card', [
+            // Pas de "paiements.index" ici : la route existe mais requiert un {eleve}
+            // (les règlements se consultent depuis la fiche élève, pas de liste globale).
+            ['echeances.index', 'Échéanciers & impayés'],
+            ['echeances.generer', 'Générer un échéancier'],
+        ]],
+        ['Pédagogie', 'rose', 'book', [
+            ['referentiel.niveaux.index', 'Niveaux & cycles'],
+            ['referentiel.cours.index', 'Matières'],
             ['planning.index', 'Emploi du temps'],
-            ['referentiel.matieres.index', 'Matières'],
-            ['referentiel.cours.index', 'Cours'],
-            ['referentiel.ref.index', 'Référentiel des heures'],
+            ['referentiel.periodes-formation.index', 'Périodes scolaires'],
         ]],
-        ['Notation & bulletins', 'rose', 'pencil', [
+        ['Notation & bulletins', 'violet', 'pencil', [
             ['evaluations.index', 'Évaluations & notes'],
-            ['bulletin-v2.index', 'Bulletins PDF'],
-            ['bulletins.index', 'Bulletins (décisions)'],
+            ['bulletin-v2.index', 'Bulletins de notes'],
+            ['bulletins.index', 'Conseils de classe & décisions'],
             ['types-evaluation.index', "Types d'évaluation"],
         ]],
-        ['Établissements & personnel', 'violet', 'school', [
+        ['Établissement & administration', 'slate', 'shield', [
             ['referentiel.intervenants.index', 'Enseignants'],
-            ['referentiel.etablissements.index', 'Établissements'],
             ['salles.index', 'Salles'],
-            ['referentiel.signatures.index', 'Signatures'],
-        ]],
-        ['Administration', 'slate', 'shield', [
             ['admins.index', 'Administrateurs'],
-            ['roles.index', 'Rôles & permissions'],
-            ['emails.index', "Modèles d'emails"],
-            ['configuration.site', 'Config. du site'],
+            ['configuration.site', "Paramètres de l'école"],
         ]],
     ];
 
