@@ -28,7 +28,7 @@ class TeacherSpaceController extends Controller
         $intervenant = Auth::guard('intervenant')->user()->intervenant;
         $debutSemaine = Calendrier::debutSemaine($request->string('semaine')->toString());
 
-        $creneaux = ActiviteIntervenant::with(['etablissement', 'cours', 'classe'])
+        $creneaux = ActiviteIntervenant::with(['etablissement', 'cours', 'classe', 'salle'])
             ->where('id_intervenant', $intervenant->id_intervenant)
             ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
             ->orderBy('date_debut')
@@ -42,7 +42,7 @@ class TeacherSpaceController extends Controller
                 'titre' => $c->cours?->nom_cours ?: 'Cours',
                 'meta' => collect([
                     $c->classe?->classe ?: null,
-                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                    $c->salle?->nom_salle ? 'Salle '.$c->salle->nom_salle : null,
                 ])->filter()->implode(' · '),
                 // Couleur de la classe : l'enseignant reconnaît ses groupes
                 // d'un coup d'œil, comme sur l'écran d'administration.

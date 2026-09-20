@@ -54,4 +54,14 @@ class ActiviteIntervenant extends Model
     {
         return $this->belongsTo(Classe::class, 'id_classe', 'id_classe');
     }
+
+    /**
+     * `id_salle` est une colonne texte héritée, mais elle contient bien l'ID
+     * d'une salle : sans cette relation, l'emploi du temps affichait
+     * « Salle 43 » au lieu de « Salle A1 ».
+     */
+    public function salle()
+    {
+        return $this->belongsTo(Salle::class, 'id_salle', 'id_salle');
+    }
 }

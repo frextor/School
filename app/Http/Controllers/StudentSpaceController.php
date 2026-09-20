@@ -44,7 +44,7 @@ class StudentSpaceController extends Controller
         $eleve = Auth::guard('eleve')->user()->eleve;
         $debutSemaine = Calendrier::debutSemaine($request->string('semaine')->toString());
 
-        $creneaux = ActiviteIntervenant::with(['intervenant', 'cours'])
+        $creneaux = ActiviteIntervenant::with(['intervenant', 'cours', 'salle'])
             ->where('id_classe', $eleve->id_classe)
             ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
             ->orderBy('date_debut')
@@ -58,7 +58,7 @@ class StudentSpaceController extends Controller
                 'titre' => $c->cours?->nom_cours ?: 'Cours',
                 'meta' => collect([
                     trim(($c->intervenant?->nom ?? '').' '.($c->intervenant?->prenom ?? '')) ?: null,
-                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                    $c->salle?->nom_salle ? 'Salle '.$c->salle->nom_salle : null,
                 ])->filter()->implode(' · '),
                 'couleur' => Calendrier::couleurMatiere($c->cours?->nom_cours),
             ]), $debutSemaine),

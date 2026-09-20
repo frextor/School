@@ -7,6 +7,7 @@ use App\Models\Classe;
 use App\Models\Cours;
 use App\Models\Etablissement;
 use App\Models\Intervenant;
+use App\Models\Salle;
 use App\Support\Calendrier;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -40,7 +41,7 @@ class PlanningController extends Controller
         $vue = $request->string('vue')->toString() === 'liste' ? 'liste' : 'calendrier';
         $debutSemaine = $this->debutSemaine($request);
 
-        $base = fn () => ActiviteIntervenant::with(['intervenant', 'etablissement', 'cours', 'classe'])
+        $base = fn () => ActiviteIntervenant::with(['intervenant', 'etablissement', 'cours', 'classe', 'salle'])
             ->when($filtres['intervenant'], fn ($q, $v) => $q->where('id_intervenant', $v))
             ->when($filtres['campus'], fn ($q, $v) => $q->where('id_etablissement', $v))
             ->when($filtres['classe'], fn ($q, $v) => $q->where('id_classe', $v));
@@ -69,11 +70,35 @@ class PlanningController extends Controller
                 'meta' => collect([
                     $c->classe?->classe,
                     $c->intervenant?->nom,
-                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                    $c->salle?->nom_salle ? 'Salle '.$c->salle->nom_salle : null,
                 ])->filter()->implode(' · '),
                 // La couleur de la classe rend la grille lisible d'un coup d'œil.
                 'couleur' => $c->classe?->couleur ?: '#4f46e5',
+                // Le clic ouvre la fiche du créneau ; le lien reste là comme
+                // repli si le script ne s'exécute pas.
                 'url' => route('planning.edit', $c),
+                'donnees' => [
+                    'creneau' => $c->id_activite_intervenant,
+                    'cours' => $c->id_cours,
+                    'intervenant' => $c->id_intervenant,
+                    'campus' => $c->id_etablissement,
+                    'classe' => $c->id_classe,
+                    'salle' => $c->id_salle,
+                    'debut' => $c->date_debut->format('Y-m-d\TH:i'),
+                    'fin' => $c->date_fin->format('Y-m-d\TH:i'),
+                    'semestre' => $c->semestre,
+                    'annee' => $c->annee,
+                    'annotation' => $c->annotation,
+                    'libelle' => $c->cours?->nom_cours ?: 'Cours',
+                    'quand' => ucfirst($c->date_debut->translatedFormat('l j F')).' · '
+                        .$c->date_debut->format('H:i').' – '.$c->date_fin->format('H:i'),
+                    'classe-nom' => $c->classe?->classe ?: '—',
+                    'intervenant-nom' => trim(($c->intervenant?->nom ?? '').' '.($c->intervenant?->prenom ?? '')) ?: '—',
+                    'campus-nom' => $c->etablissement?->nom_etablissement ?: '—',
+                    'salle-nom' => $c->salle?->nom_salle ?: '—',
+                    'maj' => route('planning.update', $c),
+                    'suppr' => route('planning.destroy', $c),
+                ],
             ]), $debutSemaine);
         }
 
@@ -87,6 +112,9 @@ class PlanningController extends Controller
             'intervenants' => Intervenant::orderBy('nom')->get(),
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'couleur']),
+            // Listes du formulaire de la fiche créneau (modification sur place).
+            'cours' => Cours::orderBy('nom_cours')->get(['id_cours', 'nom_cours']),
+            'salles' => Salle::orderBy('nom_salle')->get(['id_salle', 'nom_salle']),
         ]);
     }
 
@@ -143,8 +171,11 @@ class PlanningController extends Controller
 
         $creneau->update($data);
 
+        // `back()` plutôt qu'une route fixe : modifié depuis la fiche du
+        // calendrier, on revient sur la semaine consultée et non sur le
+        // formulaire plein écran.
         return redirect()
-            ->route('planning.edit', $creneau)
+            ->back()
             ->with('status', 'Créneau mis à jour.');
     }
 
@@ -152,8 +183,10 @@ class PlanningController extends Controller
     {
         $creneau->delete();
 
+        // Comme pour la mise à jour : on revient sur la semaine consultée
+        // plutôt que sur l'écran de choix d'une classe.
         return redirect()
-            ->route('planning.index')
+            ->back()
             ->with('status', 'Créneau supprimé.');
     }
 

@@ -79,6 +79,11 @@
                                 @endphp
                                 <{{ $balise }}
                                     @if (! empty($evenement['url'])) href="{{ $evenement['url'] }}" @endif
+                                    {{-- L'appelant peut accrocher ses propres données au créneau
+                                         (l'administration s'en sert pour ouvrir une fiche). --}}
+                                    @foreach ($evenement['donnees'] ?? [] as $cle => $valeur)
+                                        data-{{ $cle }}="{{ $valeur }}"
+                                    @endforeach
                                     class="cal-event"
                                     style="top: {{ $evenement['haut'] }}%;
                                            height: {{ $evenement['hauteur'] }}%;
