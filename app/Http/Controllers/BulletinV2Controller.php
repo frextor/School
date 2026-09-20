@@ -55,6 +55,7 @@ class BulletinV2Controller extends Controller
             'annee' => $request->filled('annee') ? $request->integer('annee') : null,
             'semestre' => $request->filled('semestre') ? $request->integer('semestre') : null,
             'session' => $request->filled('session') ? $request->integer('session') : null,
+            'q' => $request->filled('q') ? trim($request->string('q')->toString()) : null,
         ];
 
         // La liste d'élèves n'apparaît qu'après une recherche explicite : sans
@@ -62,6 +63,7 @@ class BulletinV2Controller extends Controller
         $recherche = $request->has('recherche');
         $eleves = null;
         $bulletinsParEleve = collect();
+        $moyennes = collect();
 
         if ($recherche) {
             $eleves = Eleve::query()
@@ -77,6 +79,12 @@ class BulletinV2Controller extends Controller
                 ->when($filtres['campus'], fn ($q, $v) => $q->whereHas('classe', fn ($c) => $c->where('id_etablissement', $v)))
                 ->when($filtres['niveau'], fn ($q, $v) => $q->where('amos_eleves.id_niveau', $v))
                 ->when($filtres['classe'], fn ($q, $v) => $q->where('amos_eleves.id_classe', $v))
+                // Recherche libre : retrouver un élève précis sans connaître sa classe.
+                ->when($filtres['q'], fn ($q, $terme) => $q->where(function ($q) use ($terme) {
+                    $q->where('amos_contacts.nom', 'like', "%{$terme}%")
+                        ->orWhere('amos_contacts.prenom', 'like', "%{$terme}%")
+                        ->orWhere('amos_contacts.email', 'like', "%{$terme}%");
+                }))
                 ->orderBy('amos_contacts.nom')
                 ->orderBy('amos_contacts.prenom')
                 ->paginate(50)
@@ -93,6 +101,8 @@ class BulletinV2Controller extends Controller
                 ->get()
                 ->groupBy('id_eleve')
                 ->map(fn ($groupe) => $groupe->first());
+
+            $moyennes = $this->moyennesPeriode($eleves->items(), $filtres['annee'], $filtres['semestre']);
         }
 
         // Années proposées : celles réellement présentes en base, complétées par
@@ -108,6 +118,7 @@ class BulletinV2Controller extends Controller
             'filtres' => $filtres,
             'eleves' => $eleves,
             'bulletinsParEleve' => $bulletinsParEleve,
+            'moyennes' => $moyennes,
             'annees' => $annees,
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'niveaux' => Niveau::orderBy('nom_niveau')->get(),
@@ -200,6 +211,71 @@ class BulletinV2Controller extends Controller
         ]);
 
         $eleve = Eleve::with('contact')->findOrFail($data['id_eleve']);
+        $bulletin = $this->produireBulletin($eleve, $data);
+
+        return redirect()
+            ->route('bulletin-v2.index')
+            ->with('status', "Bulletin généré pour {$eleve->contact?->nom_complet} (n°{$bulletin->id_bulletin}).");
+    }
+
+    /**
+     * Génération en lot depuis l'écran de consultation : on coche plusieurs
+     * élèves d'une classe et l'on produit leur bulletin d'un coup.
+     *
+     * L'établissement et le niveau ne sont pas demandés au formulaire : ils
+     * sont lus sur chaque élève (sa classe porte le campus), sinon un envoi
+     * couvrant deux classes attribuerait le mauvais en-tête aux bulletins.
+     */
+    public function generateBatch(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'eleves' => ['required', 'array', 'min:1'],
+            'eleves.*' => ['integer', 'exists:amos_eleves,id_eleve'],
+            'annee' => ['required', 'integer'],
+            'semestre' => ['nullable', 'integer'],
+            'session' => ['nullable', 'integer'],
+        ]);
+
+        $eleves = Eleve::with(['contact', 'classe'])->findMany($data['eleves']);
+        $produits = 0;
+        $ignores = [];
+
+        foreach ($eleves as $eleve) {
+            $idEtablissement = $eleve->classe?->id_etablissement;
+
+            // Sans classe (donc sans campus) ou sans niveau, le PDF n'aurait ni
+            // en-tête d'établissement ni coefficients : on préfère le dire.
+            if (! $idEtablissement || ! $eleve->id_niveau) {
+                $ignores[] = $eleve->contact?->nom_complet ?: "élève n°{$eleve->id_eleve}";
+                continue;
+            }
+
+            $this->produireBulletin($eleve, $data + [
+                'id_etablissement' => $idEtablissement,
+                'id_niveau' => $eleve->id_niveau,
+            ]);
+            $produits++;
+        }
+
+        $message = $produits > 1
+            ? "{$produits} bulletins générés."
+            : ($produits === 1 ? '1 bulletin généré.' : 'Aucun bulletin généré.');
+
+        if ($ignores) {
+            $message .= ' Sans classe ou sans niveau, donc ignoré(s) : '.implode(', ', $ignores).'.';
+        }
+
+        return redirect()->back()->with('status', $message);
+    }
+
+    /**
+     * Calcule les moyennes puis produit et enregistre le PDF d'un élève.
+     * Partagé par la génération unitaire et la génération en lot.
+     *
+     * @param  array{annee:int,semestre:?int,session:?int,id_etablissement:int,id_niveau:int}  $data
+     */
+    private function produireBulletin(Eleve $eleve, array $data): SnBulletin
+    {
         $notesParMatiere = $this->notesEleve($eleve, $data['annee'], $data['semestre'] ?? null);
 
         // Coefficients de matière définis pour le niveau du bulletin (K-12).
@@ -252,7 +328,7 @@ class BulletinV2Controller extends Controller
             'assiduite' => $this->assiduite($eleve, $data['annee'], $data['semestre'] ?? null),
         ]);
 
-        $bulletin = SnBulletin::create([
+        return SnBulletin::create([
             'pdf' => $pdf->output(),
             'annee' => $data['annee'],
             'semestre' => $data['semestre'] ?? 0,
@@ -262,18 +338,84 @@ class BulletinV2Controller extends Controller
             'session' => $data['session'] ?? 0,
             'active' => true,
         ]);
-
-        return redirect()
-            ->route('bulletin-v2.index')
-            ->with('status', "Bulletin généré pour {$eleve->contact?->nom_complet} (n°{$bulletin->id_bulletin}).");
     }
 
-    /** Portage de `bulletin($id_bulletin)` — téléchargement du PDF stocké. */
-    public function show(SnBulletin $bulletin): Response
+    /**
+     * Moyenne générale de la période pour toute une liste d'élèves, calculée
+     * comme celle du bulletin (matière pondérée par le type d'évaluation, puis
+     * moyenne générale pondérée par le coefficient de matière du niveau).
+     *
+     * Tout est chargé en deux requêtes — les notes de tous les élèves d'un
+     * coup, les coefficients une fois par niveau — plutôt qu'un calcul par
+     * ligne du tableau.
+     *
+     * @return \Illuminate\Support\Collection<int, float|null>
+     */
+    private function moyennesPeriode(iterable $eleves, ?int $annee, ?int $semestre): \Illuminate\Support\Collection
     {
+        $eleves = collect($eleves);
+        $ids = $eleves->pluck('id_eleve');
+
+        // Sans année, la « période » n'a pas de sens : la colonne reste vide
+        // plutôt que de mélanger les notes de plusieurs années scolaires.
+        if ($ids->isEmpty() || ! $annee) {
+            return collect();
+        }
+
+        $notes = Note::with('evaluation.typeEvaluation')
+            ->whereIn('id_eleve', $ids)
+            ->where('annee', $annee)
+            ->when($semestre, fn ($q) => $q->where('semestre', $semestre))
+            ->get();
+
+        $niveauParEleve = $eleves->pluck('id_niveau', 'id_eleve');
+        $coefParNiveau = $niveauParEleve->unique()->filter()->mapWithKeys(fn ($idNiveau) => [
+            $idNiveau => Niveau::find($idNiveau)?->matieres
+                ->mapWithKeys(fn ($m) => [$m->id_cours => (float) $m->pivot->coefficient]) ?? collect(),
+        ]);
+
+        return $notes->groupBy('id_eleve')->map(function ($notesEleve, $idEleve) use ($coefParNiveau, $niveauParEleve) {
+            $coefficients = $coefParNiveau[$niveauParEleve[$idEleve] ?? null] ?? collect();
+            $totalPoints = 0;
+            $totalCoef = 0;
+
+            foreach ($notesEleve->groupBy('id_matiere') as $idMatiere => $notesMatiere) {
+                $points = 0;
+                $coefs = 0;
+
+                foreach ($notesMatiere as $note) {
+                    $coef = (float) ($note->evaluation?->typeEvaluation?->coef ?? 1);
+
+                    if (is_numeric($note->note)) {
+                        $points += (float) $note->note * $coef;
+                        $coefs += $coef;
+                    }
+                }
+
+                if ($coefs <= 0) {
+                    continue;
+                }
+
+                $coefMatiere = (float) ($coefficients[$idMatiere] ?? 1);
+                $totalPoints += ($points / $coefs) * $coefMatiere;
+                $totalCoef += $coefMatiere;
+            }
+
+            return $totalCoef > 0 ? round($totalPoints / $totalCoef, 2) : null;
+        });
+    }
+
+    /**
+     * Portage de `bulletin($id_bulletin)` — le PDF stocké, affiché dans
+     * l'onglet ou téléchargé selon `?telecharger=1`.
+     */
+    public function show(Request $request, SnBulletin $bulletin): Response
+    {
+        $disposition = $request->boolean('telecharger') ? 'attachment' : 'inline';
+
         return response($bulletin->pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="bulletin-'.$bulletin->id_bulletin.'.pdf"',
+            'Content-Disposition' => $disposition.'; filename="bulletin-'.$bulletin->id_bulletin.'.pdf"',
         ]);
     }
 }

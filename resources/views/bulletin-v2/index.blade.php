@@ -33,6 +33,17 @@
     <span class="current">Bulletins de notes</span>
 </div>
 
+@if (session('status'))
+    <div class="status">{{ session('status') }}</div>
+@endif
+
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $error){{ $error }} @endforeach</span>
+    </div>
+@endif
+
 <div class="page-head">
     <div>
         <h1>Bulletins de notes</h1>
@@ -107,6 +118,10 @@
     </div>
 
     <div class="rech-actions">
+        <div class="rech-search">
+            @include('partials.icon', ['n' => 'search', 's' => 15, 'c' => '#9aa0b0', 'w' => 2])
+            <input type="search" name="q" value="{{ $filtres['q'] }}" placeholder="Nom, prénom ou email de l'élève…">
+        </div>
         <button type="submit" class="btn">
             @include('partials.icon', ['n' => 'search', 's' => 15, 'c' => '#fff', 'w' => 2.2])Rechercher
         </button>
@@ -114,9 +129,41 @@
             <a href="{{ route('bulletin-v2.index') }}" class="filter-reset">Réinitialiser</a>
         @endif
     </div>
+
+    @if ($recherche)
+        @php
+            // Rappel des critères en cours : sans cela, une liste de 25 noms ne
+            // dit pas de quelle période elle parle.
+            $resume = [
+                'Campus' => $etablissements->firstWhere('id_etablissement', $filtres['campus'])?->nom_etablissement ?? 'Tous',
+                'Niveau' => $niveaux->firstWhere('id_niveau', $filtres['niveau'])?->nom_niveau ?? 'Tous',
+                'Classe' => $classes->firstWhere('id_classe', $filtres['classe'])?->classe ?? 'Toutes',
+                'Année' => $filtres['annee'] ? $filtres['annee'].'-'.($filtres['annee'] + 1) : 'Toutes',
+                'Semestre' => $libelleSemestre($filtres['semestre']),
+                'Session' => $libelleSession($filtres['session']),
+            ];
+        @endphp
+        <div class="rech-resume">
+            @foreach ($resume as $label => $valeur)
+                <span class="tagf"><span>{{ $label }}</span>{{ Str::limit($valeur, 30) }}</span>
+            @endforeach
+            @if ($filtres['q'])
+                <span class="tagf"><span>Recherche</span>{{ Str::limit($filtres['q'], 24) }}</span>
+            @endif
+        </div>
+    @endif
 </form>
 
 @if ($recherche)
+    {{-- Génération en lot : formulaire distinct de celui des filtres (GET),
+         les deux sont voisins et non imbriqués. --}}
+    <form method="post" action="{{ route('bulletin-v2.generate-batch') }}" id="lot-form">
+        @csrf
+        <input type="hidden" name="annee" value="{{ $filtres['annee'] }}">
+        <input type="hidden" name="semestre" value="{{ $filtres['semestre'] }}">
+        <input type="hidden" name="session" value="{{ $filtres['session'] }}">
+    </form>
+
     <div class="table-card">
         <div class="table-head">
             <span class="table-count">
@@ -125,16 +172,31 @@
                 · {{ $libelleSemestre($filtres['semestre']) }}
                 · {{ $libelleSession($filtres['session']) }}
             </span>
+            <span class="bulk-actions">
+                <span class="bulk-count" data-compteur hidden></span>
+                {{-- Désactivé tant que rien n'est coché ; `data-pret` interdit en plus
+                     le lot quand aucune année scolaire n'est choisie. --}}
+                <button type="submit" form="lot-form" class="btn" data-lot disabled
+                        data-pret="{{ $filtres['annee'] ? 1 : 0 }}">
+                    @include('partials.icon', ['n' => 'printer', 's' => 15, 'c' => '#fff', 'w' => 2])Générer en lot
+                </button>
+            </span>
         </div>
+
+        @unless ($filtres['annee'])
+            <p class="table-note">Choisissez une année scolaire pour afficher les moyennes et générer en lot.</p>
+        @endunless
 
         <div class="table-scroll">
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th class="col-check"><input type="checkbox" data-check-all aria-label="Tout sélectionner"></th>
                         <th>Élève</th>
                         <th>Classe</th>
                         <th>Niveau</th>
                         <th>Campus</th>
+                        <th>Moyenne</th>
                         <th>Bulletin</th>
                         <th class="col-actions"></th>
                     </tr>
@@ -145,9 +207,14 @@
                             $contact = $eleve->contact;
                             $nom = trim(($contact?->nom ?? '').' '.($contact?->prenom ?? '')) ?: 'Élève n°'.$eleve->id_eleve;
                             $bulletin = $bulletinsParEleve[$eleve->id_eleve] ?? null;
+                            $moyenne = $moyennes[$eleve->id_eleve] ?? null;
                             $initiales = mb_strtoupper(mb_substr($contact?->nom ?: 'E', 0, 1).mb_substr($contact?->prenom ?: '', 0, 1));
                         @endphp
                         <tr>
+                            <td class="col-check">
+                                <input type="checkbox" form="lot-form" name="eleves[]" value="{{ $eleve->id_eleve }}"
+                                       data-check-row aria-label="Sélectionner {{ $nom }}">
+                            </td>
                             <td>
                                 <div class="cell-user">
                                     <span class="cell-avatar">{{ $initiales }}</span>
@@ -160,6 +227,9 @@
                             <td>{{ $eleve->classe?->classe ?? '—' }}</td>
                             <td>{{ $eleve->niveau?->nom_niveau ?? '—' }}</td>
                             <td>{{ $eleve->classe?->etablissement?->nom_etablissement ?? '—' }}</td>
+                            <td class="num @if ($moyenne !== null && $moyenne < 10) is-low @endif">
+                                {{ $moyenne !== null ? number_format($moyenne, 2, ',', ' ').' / 20' : '—' }}
+                            </td>
                             <td>
                                 @if ($bulletin)
                                     <span class="dot-status" style="color:#15803d">
@@ -175,7 +245,10 @@
                             </td>
                             <td class="col-actions">
                                 @if ($bulletin)
-                                    <a class="row-btn" href="{{ route('bulletin-v2.show', $bulletin) }}" target="_blank" title="Voir le PDF">
+                                    <a class="row-btn" href="{{ route('bulletin-v2.show', $bulletin) }}" target="_blank" title="Voir le bulletin">
+                                        @include('partials.icon', ['n' => 'eye', 's' => 14, 'c' => '#585e72', 'w' => 2])
+                                    </a>
+                                    <a class="row-btn" href="{{ route('bulletin-v2.show', [$bulletin, 'telecharger' => 1]) }}" title="Télécharger le PDF">
                                         @include('partials.icon', ['n' => 'download', 's' => 14, 'c' => '#585e72', 'w' => 2])
                                     </a>
                                 @endif
@@ -187,7 +260,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="empty-cell">
+                            <td colspan="8" class="empty-cell">
                                 @include('partials.icon', ['n' => 'search', 's' => 26, 'c' => '#c3c6d4', 'w' => 1.6])
                                 <span>Aucun élève ne correspond à ces critères.</span>
                                 <a href="{{ route('bulletin-v2.index') }}">Réinitialiser la recherche</a>
@@ -254,8 +327,29 @@
     .rech-grid .stack { display: block; margin: 0; min-width: 0; }
     .rech-grid .stack > span:first-child { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
     .rech-grid select { width: 100%; max-width: none; cursor: pointer; }
-    .rech-actions { display: flex; align-items: center; gap: 10px; margin-top: 13px; }
-    .rech-actions .btn { display: inline-flex; align-items: center; gap: 7px; }
+    .rech-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-soft); }
+    .rech-actions .btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+    .rech-search { position: relative; flex: 1 1 240px; min-width: 0; }
+    .rech-search svg { position: absolute; left: 12px; top: 11px; pointer-events: none; }
+    .rech-search input { width: 100%; max-width: none; padding-left: 34px; background: #fafbfd; }
+
+    /* Rappel des critères actifs sous les filtres. */
+    .rech-resume { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 13px; }
+    .tagf {
+        display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
+        background: #f3f4f9; color: #475569; font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .tagf > span { color: #9aa0b0; font-weight: 500; }
+
+    .table-head .bulk-actions { align-items: center; }
+    .table-head .btn { display: inline-flex; align-items: center; gap: 7px; }
+    .table-head .btn:disabled { background: #eceef4; color: var(--faint); box-shadow: none; cursor: not-allowed; }
+    .table-head .btn:disabled svg { stroke: var(--faint); }
+    .table-note { margin: 0; padding: 10px 16px; background: #fffbeb; border-bottom: 1px solid #fde68a; font-size: 12.5px; color: #92400e; }
+
+    /* Deux actions par ligne (voir + télécharger) : la colonne par défaut est trop étroite. */
+    .data-table .col-actions { width: 104px; }
+    .num.is-low { color: var(--danger); font-weight: 600; }
 </style>
 
 <script>
@@ -292,6 +386,44 @@
         });
 
         remplir();
+    })();
+
+    // ---- Sélection multiple et génération en lot ----------------------------
+    (function () {
+        var tout = document.querySelector('[data-check-all]');
+        var lignes = Array.prototype.slice.call(document.querySelectorAll('[data-check-row]'));
+        var bouton = document.querySelector('[data-lot]');
+        var compteur = document.querySelector('[data-compteur]');
+        if (!tout || !bouton) return;
+
+        // `data-pret` vient du serveur : sans année scolaire, le lot n'aurait
+        // pas de période et le bouton doit rester inactif quoi qu'on coche.
+
+        function sync() {
+            var coches = lignes.filter(function (c) { return c.checked; }).length;
+
+            compteur.hidden = coches === 0;
+            compteur.textContent = coches + (coches > 1 ? ' élèves sélectionnés' : ' élève sélectionné');
+            bouton.disabled = coches === 0 || bouton.dataset.pret !== '1';
+            tout.checked = coches > 0 && coches === lignes.length;
+            tout.indeterminate = coches > 0 && coches < lignes.length;
+        }
+
+        tout.addEventListener('change', function () {
+            lignes.forEach(function (c) { c.checked = tout.checked; });
+            sync();
+        });
+
+        lignes.forEach(function (c) { c.addEventListener('change', sync); });
+
+        document.getElementById('lot-form').addEventListener('submit', function (e) {
+            var coches = lignes.filter(function (c) { return c.checked; }).length;
+            if (coches > 5 && !window.confirm('Générer ' + coches + ' bulletins ? L\'opération peut prendre un moment.')) {
+                e.preventDefault();
+            }
+        });
+
+        sync();
     })();
 </script>
 @endsection

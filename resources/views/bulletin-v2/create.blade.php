@@ -4,11 +4,11 @@
 
 @section('content')
 @php
-    // Valeurs par d\u00e9faut : une resoumission apr\u00e8s erreur (`old`) l'emporte, puis
-    // les param\u00e8tres pass\u00e9s par le raccourci « G\u00e9n\u00e9rer » de la liste des bulletins.
+    // Valeurs par défaut : une resoumission après erreur (`old`) l'emporte, puis
+    // les paramètres passés par le raccourci « Générer » de la liste des bulletins.
     $anneeDefaut = (int) old('annee', request('annee', date('Y')));
     $semestreDefaut = (string) old('semestre', request('semestre', ''));
-    // Un semestre \u00e0 0 et un semestre vide d\u00e9signent la m\u00eame chose (ann\u00e9e compl\u00e8te).
+    // Un semestre à 0 et un semestre vide désignent la même chose (année complète).
     $semestreDefaut = $semestreDefaut === '0' ? '' : $semestreDefaut;
     $sessionDefaut = (int) old('session', request('session', 0));
     $etablissementDefaut = old('id_etablissement', request('id_etablissement'));

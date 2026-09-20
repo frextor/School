@@ -288,6 +288,7 @@ Route::middleware('auth:admin')->group(function () {
         Route::get('/', [BulletinV2Controller::class, 'index'])->name('index');
         Route::get('create', [BulletinV2Controller::class, 'create'])->name('create');
         Route::post('generate', [BulletinV2Controller::class, 'generate'])->name('generate');
+        Route::post('generate-batch', [BulletinV2Controller::class, 'generateBatch'])->name('generate-batch');
         Route::get('classes/{classe}/eleves', [BulletinV2Controller::class, 'studentsForClass'])->name('students-for-class');
         Route::get('{bulletin}', [BulletinV2Controller::class, 'show'])->name('show');
     });
