@@ -7,37 +7,37 @@
     // Raccourcis regroupés par domaine. Chaque entrée : [route, libellé].
     // Mêmes domaines et libellés que le menu latéral (partials/admin-nav.blade.php).
     $domaines = [
-        ['Scolarité', 'indigo', 'users', [
+        ['Vie scolaire', 'indigo', 'users', [
             ['eleves.index', 'Élèves'],
-            ['referentiel.classes.index', 'Classes'],
-            ['absences.index', 'Assiduité'],
             ['absences.appel', "Faire l'appel"],
+            ['absences.index', 'Absences & retards'],
+            ['referentiel.groupes.index', "Groupes d'élèves"],
         ]],
-        ['Inscriptions & familles', 'teal', 'contact', [
-            ['contacts.index', 'Familles & prospects'],
-            ['candidats.index', 'Candidats'],
-            ['epreuves.index', "Épreuves d'admission"],
-            ['taches.index', 'Tâches & relances'],
-        ]],
-        ['Finances', 'amber', 'card', [
-            // Pas de "paiements.index" ici : la route existe mais requiert un {eleve}
-            // (les règlements se consultent depuis la fiche élève, pas de liste globale).
-            ['echeances.index', 'Échéanciers & impayés'],
-            ['echeances.generer', 'Générer un échéancier'],
-        ]],
-        ['Pédagogie', 'rose', 'book', [
+        ['Pédagogie', 'amber', 'book', [
+            ['referentiel.classes.index', 'Classes'],
             ['referentiel.niveaux.index', 'Niveaux & cycles'],
             ['referentiel.cours.index', 'Matières'],
             ['planning.index', 'Emploi du temps'],
-            ['referentiel.periodes-formation.index', 'Périodes scolaires'],
         ]],
-        ['Notation & bulletins', 'violet', 'pencil', [
+        ['Notation & bulletins', 'rose', 'pencil', [
             ['evaluations.index', 'Évaluations & notes'],
             ['bulletin-v2.index', 'Bulletins de notes'],
             ['bulletins.index', 'Conseils de classe & décisions'],
             ['types-evaluation.index', "Types d'évaluation"],
         ]],
-        ['Établissement & administration', 'slate', 'shield', [
+        ['Facturation', 'teal', 'card', [
+            // Pas de "paiements.index" ici : la route existe mais requiert un {eleve}
+            // (les règlements se consultent depuis la fiche élève, pas de liste globale).
+            ['echeances.index', 'Échéanciers & impayés'],
+            ['echeances.generer', 'Générer un échéancier'],
+        ]],
+        ['Admissions & CRM', 'violet', 'contact', [
+            ['contacts.index', 'Familles & prospects'],
+            ['candidats.index', 'Candidats'],
+            ['epreuves.index', "Épreuves d'admission"],
+            ['taches.index', 'Tâches & relances'],
+        ]],
+        ['Personnel & administration', 'slate', 'shield', [
             ['referentiel.intervenants.index', 'Enseignants'],
             ['salles.index', 'Salles'],
             ['admins.index', 'Administrateurs'],

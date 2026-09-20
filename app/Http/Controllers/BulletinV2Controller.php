@@ -61,6 +61,8 @@ class BulletinV2Controller extends Controller
             // niveau -> classe -> élève, voir studentsForClass) : pas besoin
             // d'ID élève à saisir à la main.
             'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'id_niveau']),
+            // Encadré « Derniers bulletins » du formulaire.
+            'bulletins' => SnBulletin::with('eleve.contact')->orderByDesc('date_insert')->limit(5)->get(),
         ]);
     }
 

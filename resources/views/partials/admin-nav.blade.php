@@ -7,14 +7,39 @@
     // Cours), entreprises/alternance, archives de réunions, spécialisations,
     // types de pièce entreprise. Une ligne à remettre ici pour réactiver.
     $navGroups = [
-        ['Scolarité', [
+        // Un groupe = un domaine métier, avec son responsable dans l'école :
+        // la vie scolaire au quotidien, la pédagogie, la notation, la
+        // facturation, le recrutement des familles, puis les ressources
+        // et l'administration.
+        ['Vie scolaire', [
             ['eleves.index', 'eleves.*', 'users', 'Élèves'],
-            ['referentiel.classes.index', 'referentiel.classes.*', 'tag', 'Classes'],
-            ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', "Groupes d'élèves"],
-            ['absences.index', 'absences.index', 'check', 'Assiduité'],
             ['absences.appel', 'absences.appel', 'check-simple', "Faire l'appel"],
+            ['absences.index', 'absences.index', 'check', 'Absences & retards'],
+            ['referentiel.groupes.index', 'referentiel.groupes.*', 'group', "Groupes d'élèves"],
         ]],
-        ['Inscriptions & familles', [
+        ['Pédagogie', [
+            ['referentiel.classes.index', 'referentiel.classes.*', 'tag', 'Classes'],
+            ['referentiel.niveaux.index', 'referentiel.niveaux.*', 'levels', 'Niveaux & cycles'],
+            // `Cours` est la table que la notation, les coefficients, les bulletins et
+            // l'emploi du temps utilisent : c'est bien elle qui porte les matières.
+            // (`amos_matiere` est un découpage d'UE hérité du supérieur, sans usage en K-12.)
+            ['referentiel.cours.index', 'referentiel.cours.*', 'book', 'Matières'],
+            ['planning.index', 'planning.*', 'cal', 'Emploi du temps'],
+            ['referentiel.periodes-formation.index', 'referentiel.periodes-formation.*', 'cal', 'Périodes scolaires'],
+            ['referentiel.ref.index', 'referentiel.ref.*', 'clock', 'Heures par matière'],
+            ['referentiel.parametrage.index', 'referentiel.parametrage.*', 'chart', 'Volumes horaires'],
+        ]],
+        ['Notation & bulletins', [
+            ['evaluations.index', 'evaluations.*', 'pencil', 'Évaluations & notes'],
+            ['bulletin-v2.index', 'bulletin-v2.*', 'printer', 'Bulletins de notes'],
+            ['bulletins.index', 'bulletins.index', 'file', 'Conseils de classe & décisions'],
+            ['types-evaluation.index', 'types-evaluation.*', 'tag', "Types d'évaluation"],
+        ]],
+        ['Facturation', [
+            ['echeances.index', 'echeances.index', 'card', 'Échéanciers & impayés'],
+            ['echeances.generer', 'echeances.generer', 'plus', 'Générer un échéancier'],
+        ]],
+        ['Admissions & CRM', [
             ['contacts.index', 'contacts.*', 'contact', 'Familles & prospects'],
             ['candidats.index', 'candidats.*', 'file', 'Candidats'],
             ['epreuves.index', 'epreuves.*', 'calc', "Épreuves d'admission"],
@@ -22,31 +47,10 @@
             ['import.index', 'import.*', 'inbox', 'Import de familles'],
             ['recherche.search', 'recherche.*', 'search', 'Recherche'],
         ]],
-        ['Finances', [
-            ['echeances.index', 'echeances.index', 'card', 'Échéanciers & impayés'],
-            ['echeances.generer', 'echeances.generer', 'plus', 'Générer un échéancier'],
-        ]],
-        ['Pédagogie', [
-            ['referentiel.niveaux.index', 'referentiel.niveaux.*', 'levels', 'Niveaux & cycles'],
-            // `Cours` est la table que la notation, les coefficients, les bulletins et
-            // l'emploi du temps utilisent : c'est bien elle qui porte les matières.
-            // (`amos_matiere` est un découpage d'UE hérité du supérieur, sans usage en K-12.)
-            ['referentiel.cours.index', 'referentiel.cours.*', 'book', 'Matières'],
-            ['referentiel.periodes-formation.index', 'referentiel.periodes-formation.*', 'cal', 'Périodes scolaires'],
-            ['planning.index', 'planning.*', 'cal', 'Emploi du temps'],
-            ['referentiel.ref.index', 'referentiel.ref.*', 'clock', 'Heures par matière'],
-            ['referentiel.parametrage.index', 'referentiel.parametrage.*', 'chart', 'Volumes horaires'],
-        ]],
-        ['Notation & bulletins', [
-            ['evaluations.index', 'evaluations.*', 'pencil', 'Évaluations & notes'],
-            ['types-evaluation.index', 'types-evaluation.*', 'tag', "Types d'évaluation"],
-            ['bulletin-v2.index', 'bulletin-v2.*', 'printer', 'Bulletins de notes'],
-            ['bulletins.index', 'bulletins.index', 'file', 'Conseils de classe & décisions'],
-        ]],
-        ['Établissement & personnel', [
-            ['referentiel.etablissements.index', 'referentiel.etablissements.*', 'school', 'Établissements'],
+        ['Personnel & locaux', [
             ['referentiel.intervenants.index', 'referentiel.intervenants.*', 'school', 'Enseignants'],
             ['salles.index', 'salles.*', 'door', 'Salles'],
+            ['referentiel.etablissements.index', 'referentiel.etablissements.*', 'building', 'Établissements'],
             ['referentiel.signatures.index', 'referentiel.signatures.*', 'pen', 'Signatures'],
             ['panneaux.index', 'panneaux.*', 'bulb', "Panneaux d'affichage"],
         ]],
@@ -55,8 +59,8 @@
             ['roles.index', 'roles.*', 'shield', 'Rôles'],
             ['permissions.index', 'permissions.*', 'lock', 'Permissions'],
             ['emails.index', 'emails.*', 'mail', "Modèles d'emails"],
-            ['configuration.site', 'configuration.*', 'gear', "Paramètres de l'école"],
             ['notifications.index', 'notifications.*', 'bell', 'Notifications'],
+            ['configuration.site', 'configuration.*', 'gear', "Paramètres de l'école"],
         ]],
     ];
 @endphp
