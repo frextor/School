@@ -471,9 +471,51 @@
         .pagination-item.active { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
         .pagination-item.disabled { color: #c7cbd6; cursor: default; background: transparent; border-color: transparent; }
 
+        /* ---------- Portails élève / enseignant / entreprise ----------
+           Ces espaces n'ont pas le menu latéral de l'administration : leur
+           navigation tient sur une barre d'onglets sous l'en-tête. */
+        .portal-nav { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 58px; z-index: 9; }
+        .portal-nav-inner {
+            display: flex; gap: 4px; max-width: 1720px; margin: 0 auto; padding: 0 32px;
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .portal-nav-inner::-webkit-scrollbar { display: none; }
+        .portal-link {
+            display: inline-flex; align-items: center; gap: 7px; padding: 13px 14px; white-space: nowrap;
+            font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent;
+        }
+        .portal-link svg { stroke: currentColor; }
+        .portal-link:hover { color: var(--ink); }
+        .portal-link.is-active { color: var(--brand); border-bottom-color: var(--brand); }
+
+        /* Accueil d'un espace : cartes de synthese (prochain cours, chiffres,
+           dernieres notes). Partage par les tableaux de bord eleve et enseignant. */
+        .ho-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: start; }
+        .ho-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 18px; display: flex; flex-direction: column; min-width: 0;
+        }
+        .ho-next { grid-column: span 2; }
+        .ho-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+        .ho-card h2 { margin: 9px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+        .ho-rien { color: var(--faint); }
+        .ho-quand { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+        .ho-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; }
+        .ho-meta span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #585e72; }
+        .ho-lien { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 14px; font-size: 12.5px; font-weight: 600; }
+        .ho-chiffre strong { display: block; margin-top: 8px; font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1; color: var(--brand); }
+        .ho-unite { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
+        .ho-note { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+        .ho-notes .ho-note:first-of-type { margin-top: 8px; }
+        .ho-note-m { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ho-note-v { margin-left: auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ho-note-v.is-low { color: var(--danger); }
+        .ho-vide { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+
         /* ---------- Responsive ---------- */
         @media (max-width: 1280px) {
             .content { padding: 26px 20px 48px; }
+            .portal-nav-inner { padding: 0 20px; }
             th, td { padding: .7rem .8rem; }
             th:first-child, td:first-child { padding-left: 1rem; }
             th:last-child, td:last-child { padding-right: 1rem; }
@@ -498,6 +540,8 @@
             .topbar-search { max-width: none; }
             .who-text { display: none; }
             .content { padding: 18px 14px 40px; }
+            .portal-nav-inner { padding: 0 14px; }
+            .ho-next { grid-column: span 1; }
         }
 
         @media print {
@@ -606,6 +650,31 @@
         $portalInitials = $portalName
             ? mb_strtoupper(collect(explode(' ', trim($portalName)))->map(fn ($mot) => mb_substr($mot, 0, 1))->take(2)->implode(''))
             : '?';
+
+        // Navigation du portail : sans elle, une fois connecté on ne pouvait
+        // atteindre aucun écran (le tableau de bord ne portait qu'un bouton
+        // de déconnexion). Chaque entrée : [route, motif actif, icône, libellé].
+        $portalLinks = $intervenantUser
+            ? [
+                ['intervenant.dashboard', 'intervenant.dashboard', 'home', 'Accueil'],
+                ['espace-intervenant.planning', 'espace-intervenant.planning', 'cal', 'Mon emploi du temps'],
+                ['espace-intervenant.classes', 'espace-intervenant.*', 'users', 'Mes classes'],
+                ['recapitulatif.index', 'recapitulatif.*', 'clock', "Récapitulatif d'heures"],
+            ]
+            : ($entrepriseUser
+                ? [
+                    ['entreprise.dashboard', 'entreprise.dashboard', 'home', 'Accueil'],
+                    ['entreprise.informations', 'entreprise.informations', 'building', 'Mes informations'],
+                ]
+                : [
+                    ['eleve.dashboard', 'eleve.dashboard', 'home', 'Accueil'],
+                    ['espace-eleve.planning', 'espace-eleve.planning', 'cal', 'Mon emploi du temps'],
+                    ['espace-eleve.evaluations', 'espace-eleve.evaluations', 'pencil', 'Mes notes'],
+                    ['espace-eleve.bulletins', 'espace-eleve.bulletins*', 'printer', 'Mes bulletins'],
+                ]);
+
+        // Une route absente (module non déployé) ne doit pas casser le portail.
+        $portalLinks = collect($portalLinks)->filter(fn ($lien) => \Illuminate\Support\Facades\Route::has($lien[0]));
     @endphp
     <div class="main-col">
         <header class="topbar">
@@ -627,6 +696,19 @@
                 </form>
             </div>
         </header>
+
+        @if ($portalLinks->isNotEmpty())
+            <nav class="portal-nav" aria-label="Navigation de l'espace">
+                <div class="portal-nav-inner">
+                    @foreach ($portalLinks as [$route, $motif, $icone, $libelle])
+                        <a href="{{ route($route) }}" class="portal-link @if (request()->routeIs($motif)) is-active @endif">
+                            @include('partials.icon', ['n' => $icone, 's' => 15, 'w' => 2]){{ $libelle }}
+                        </a>
+                    @endforeach
+                </div>
+            </nav>
+        @endif
+
         <main class="content">
             @if (session('status'))
                 <div class="status">{{ session('status') }}</div>

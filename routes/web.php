@@ -108,9 +108,8 @@ Route::prefix('user-intervenant')->name('intervenant.')->group(function () {
         ->middleware('auth:intervenant')
         ->name('logout');
 
-    Route::get('/', function () {
-        return view('intervenant.dashboard');
-    })->middleware('auth:intervenant')->name('dashboard');
+    Route::get('/', [TeacherSpaceController::class, 'home'])
+        ->middleware('auth:intervenant')->name('dashboard');
 });
 
 // Espace intervenant — récapitulatif d'heures (portage de Recapitulatif.php).
@@ -135,9 +134,8 @@ Route::prefix('user')->name('eleve.')->group(function () {
         ->middleware('auth:eleve')
         ->name('logout');
 
-    Route::get('/', function () {
-        return view('eleve.dashboard');
-    })->middleware('auth:eleve')->name('dashboard');
+    Route::get('/', [StudentSpaceController::class, 'home'])
+        ->middleware('auth:eleve')->name('dashboard');
 });
 
 // Espace élève — libre-service (portage partiel de User.php : évaluations/planning/bulletins).

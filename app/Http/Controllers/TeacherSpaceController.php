@@ -22,6 +22,30 @@ use Illuminate\View\View;
  */
 class TeacherSpaceController extends Controller
 {
+    /**
+     * Accueil de l'espace : prochain cours, charge de la semaine et classes
+     * suivies. L'écran ne portait qu'un lien et un bouton de déconnexion.
+     */
+    public function home(): View
+    {
+        $intervenant = Auth::guard('intervenant')->user()->intervenant;
+        $debutSemaine = Calendrier::debutSemaine(null);
+
+        $creneaux = ActiviteIntervenant::where('id_intervenant', $intervenant->id_intervenant);
+
+        return view('intervenant.dashboard', [
+            'intervenant' => $intervenant,
+            'prochainCours' => (clone $creneaux)->with(['cours', 'classe', 'salle'])
+                ->where('date_debut', '>=', now())
+                ->orderBy('date_debut')
+                ->first(),
+            'coursSemaine' => (clone $creneaux)
+                ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
+                ->count(),
+            'nbClasses' => (clone $creneaux)->where('id_classe', '!=', '')->distinct()->count('id_classe'),
+        ]);
+    }
+
     /** Emploi du temps de la semaine, navigable (`?semaine=AAAA-MM-JJ`). */
     public function myPlanning(Request $request): View
     {

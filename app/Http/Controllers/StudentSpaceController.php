@@ -24,16 +24,51 @@ use Illuminate\View\View;
  */
 class StudentSpaceController extends Controller
 {
+    /**
+     * Accueil de l'espace : le prochain cours, les dernières notes et le
+     * dernier bulletin. L'écran ne portait qu'un bouton de déconnexion.
+     */
+    public function home(): View
+    {
+        $eleve = Auth::guard('eleve')->user()->eleve;
+        $debutSemaine = Calendrier::debutSemaine(null);
+
+        return view('eleve.dashboard', [
+            'eleve' => $eleve,
+            'prochainCours' => ActiviteIntervenant::with(['cours', 'intervenant', 'salle'])
+                ->where('id_classe', $eleve->id_classe)
+                ->where('date_debut', '>=', now())
+                ->orderBy('date_debut')
+                ->first(),
+            'coursSemaine' => ActiviteIntervenant::where('id_classe', $eleve->id_classe)
+                ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
+                ->count(),
+            'dernieresNotes' => Note::with('evaluation.matiere')
+                ->where('id_eleve', $eleve->id_eleve)
+                ->where('publier_eleve', true)
+                ->orderByDesc('date_saisie')
+                ->limit(4)
+                ->get(),
+            'dernierBulletin' => SnBulletin::where('id_eleve', $eleve->id_eleve)
+                ->where('active', true)
+                ->orderByDesc('date_insert')
+                ->first(),
+        ]);
+    }
+
     public function myEvaluations(): View
     {
         $eleve = Auth::guard('eleve')->user()->eleve;
 
-        $notes = Note::with(['evaluation.unite', 'evaluation.matiere', 'evaluation.typeEvaluation.type'])
+        // Regroupement par **matière** : l'unité d'enseignement est un
+        // découpage du supérieur, sans objet en K-12 où l'élève raisonne
+        // par matière (toutes les notes tombaient dans « Autre »).
+        $notes = Note::with(['evaluation.matiere', 'evaluation.typeEvaluation.type'])
             ->where('id_eleve', $eleve->id_eleve)
             ->where('publier_eleve', true)
             ->orderByDesc('date_saisie')
             ->get()
-            ->groupBy(fn (Note $n) => $n->evaluation?->unite?->nom_unite_enseignement ?? 'Autre');
+            ->groupBy(fn (Note $n) => $n->evaluation?->matiere?->nom_cours ?? 'Autre');
 
         return view('espace-eleve.evaluations', ['notesParUe' => $notes]);
     }
