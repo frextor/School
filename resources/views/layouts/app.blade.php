@@ -490,12 +490,16 @@
 
         /* Accueil d'un espace : cartes de synthese (prochain cours, chiffres,
            dernieres notes). Partage par les tableaux de bord eleve et enseignant. */
-        .ho-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: start; }
+        /* Quatre colonnes fixes : les cartes d'une meme rangee gardent la
+           meme hauteur, au lieu de finir en dents de scie. */
+        .ho-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
         .ho-card {
             background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
             padding: 18px; display: flex; flex-direction: column; min-width: 0;
         }
         .ho-next { grid-column: span 2; }
+        .ho-large { grid-column: span 2; }
+        .ho-card > *:last-child { margin-bottom: 0; }
         .ho-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
         .ho-card h2 { margin: 9px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
         .ho-rien { color: var(--faint); }
@@ -511,6 +515,14 @@
         .ho-note-v { margin-left: auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .ho-note-v.is-low { color: var(--danger); }
         .ho-vide { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+
+        @media (max-width: 1100px) {
+            .ho-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 620px) {
+            .ho-grid { grid-template-columns: minmax(0, 1fr); }
+            .ho-next, .ho-large { grid-column: span 1; }
+        }
 
         /* ---------- Responsive ---------- */
         @media (max-width: 1280px) {
@@ -541,7 +553,6 @@
             .who-text { display: none; }
             .content { padding: 18px 14px 40px; }
             .portal-nav-inner { padding: 0 14px; }
-            .ho-next { grid-column: span 1; }
         }
 
         @media print {

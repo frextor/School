@@ -48,8 +48,16 @@
         <span class="ho-unite">cours planifiés</span>
     </section>
 
+    <section class="ho-card ho-chiffre">
+        <span class="ho-label">Moyenne des notes</span>
+        <strong class="@if ($moyenne !== null && $moyenne < 10) is-low @endif">
+            {{ $moyenne !== null ? number_format($moyenne, 2, ',', ' ') : '—' }}
+        </strong>
+        <span class="ho-unite">sur 20, notes publiées</span>
+    </section>
+
     {{-- Dernières notes publiées. --}}
-    <section class="ho-card ho-notes">
+    <section class="ho-card ho-notes ho-large">
         <span class="ho-label">Mes dernières notes</span>
 
         @forelse ($dernieresNotes as $note)
@@ -71,7 +79,7 @@
         @endif
     </section>
 
-    <section class="ho-card">
+    <section class="ho-card ho-large">
         <span class="ho-label">Mon dernier bulletin</span>
         @if ($dernierBulletin)
             <h2>{{ $dernierBulletin->annee }}-{{ $dernierBulletin->annee + 1 }}</h2>

@@ -33,8 +33,13 @@ class StudentSpaceController extends Controller
         $eleve = Auth::guard('eleve')->user()->eleve;
         $debutSemaine = Calendrier::debutSemaine(null);
 
+        $notesPubliees = Note::where('id_eleve', $eleve->id_eleve)->where('publier_eleve', true)->get();
+
         return view('eleve.dashboard', [
             'eleve' => $eleve,
+            // Moyenne simple, comme sur l'écran « Mes notes » : la moyenne
+            // pondérée officielle est celle du bulletin.
+            'moyenne' => self::moyenneSimple($notesPubliees),
             'prochainCours' => ActiviteIntervenant::with(['cours', 'intervenant', 'salle'])
                 ->where('id_classe', $eleve->id_classe)
                 ->where('date_debut', '>=', now())
@@ -67,10 +72,32 @@ class StudentSpaceController extends Controller
             ->where('id_eleve', $eleve->id_eleve)
             ->where('publier_eleve', true)
             ->orderByDesc('date_saisie')
-            ->get()
-            ->groupBy(fn (Note $n) => $n->evaluation?->matiere?->nom_cours ?? 'Autre');
+            ->get();
 
-        return view('espace-eleve.evaluations', ['notesParUe' => $notes]);
+        $matieres = $notes
+            ->groupBy(fn (Note $n) => $n->evaluation?->matiere?->nom_cours ?? 'Autre')
+            ->map(fn ($notesMatiere) => [
+                'notes' => $notesMatiere,
+                'moyenne' => self::moyenneSimple($notesMatiere),
+            ])
+            ->sortKeys();
+
+        return view('espace-eleve.evaluations', [
+            'matieres' => $matieres,
+            // Moyenne d'ensemble : moyenne simple des notes publiées, pas la
+            // moyenne pondérée du bulletin — l'écran le dit explicitement,
+            // pour qu'on ne la prenne pas pour une moyenne officielle.
+            'moyenneGenerale' => self::moyenneSimple($notes),
+            'total' => $notes->count(),
+        ]);
+    }
+
+    /** Moyenne arithmétique des notes chiffrées d'une collection. */
+    private static function moyenneSimple(\Illuminate\Support\Collection $notes): ?float
+    {
+        $valeurs = $notes->filter(fn (Note $n) => is_numeric($n->note))->map(fn (Note $n) => (float) $n->note);
+
+        return $valeurs->isEmpty() ? null : round($valeurs->avg(), 2);
     }
 
     /** Emploi du temps de la semaine, navigable (`?semaine=AAAA-MM-JJ`). */
