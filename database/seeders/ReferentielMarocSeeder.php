@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Formation;
 use App\Models\Niveau;
+use App\Models\TypeEvaluation;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -53,20 +54,14 @@ class ReferentielMarocSeeder extends Seeder
         ]],
     ];
 
-    /**
-     * Types d'évaluation du système marocain. Sans au moins un type, aucune
-     * évaluation ne peut être créée (contrainte sur `amos_sn_evaluations_existantes`),
-     * donc aucune note saisie : une installation neuve était inutilisable.
-     */
-    private const TYPES_EVALUATION = [
-        'Contrôle continu',
-        'Activités intégrées',
-        'Examen de fin de semestre',
-    ];
-
     public function run(): void
     {
-        foreach (self::TYPES_EVALUATION as $type) {
+        // Types d'évaluation du système marocain (liste portée par le modèle,
+        // qui la propose aussi sur l'écran du dictionnaire). Sans au moins un
+        // type, aucune évaluation ne peut être créée (contrainte sur
+        // `amos_sn_evaluations_existantes`), donc aucune note saisie : une
+        // installation neuve était inutilisable.
+        foreach (TypeEvaluation::TYPES_MAROC as $type) {
             DB::table('amos_type_evaluation')->updateOrInsert(['type' => $type]);
         }
 
