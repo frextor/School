@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ActiviteIntervenant;
 use App\Models\Classe;
 use App\Models\Eleve;
+use App\Support\Calendrier;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -20,17 +22,33 @@ use Illuminate\View\View;
  */
 class TeacherSpaceController extends Controller
 {
-    public function myPlanning(): View
+    /** Emploi du temps de la semaine, navigable (`?semaine=AAAA-MM-JJ`). */
+    public function myPlanning(Request $request): View
     {
         $intervenant = Auth::guard('intervenant')->user()->intervenant;
+        $debutSemaine = Calendrier::debutSemaine($request->string('semaine')->toString());
 
         $creneaux = ActiviteIntervenant::with(['etablissement', 'cours', 'classe'])
             ->where('id_intervenant', $intervenant->id_intervenant)
-            ->where('date_debut', '>=', now()->subDays(7))
+            ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
             ->orderBy('date_debut')
             ->get();
 
-        return view('espace-intervenant.planning', ['creneaux' => $creneaux]);
+        return view('espace-intervenant.planning', [
+            'debutSemaine' => $debutSemaine,
+            'semaine' => Calendrier::semaine($creneaux->map(fn (ActiviteIntervenant $c) => [
+                'debut' => $c->date_debut,
+                'fin' => $c->date_fin,
+                'titre' => $c->cours?->nom_cours ?: 'Cours',
+                'meta' => collect([
+                    $c->classe?->classe ?: null,
+                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                ])->filter()->implode(' · '),
+                // Couleur de la classe : l'enseignant reconnaît ses groupes
+                // d'un coup d'œil, comme sur l'écran d'administration.
+                'couleur' => $c->classe?->couleur ?: '#4f46e5',
+            ]), $debutSemaine),
+        ]);
     }
 
     public function myClasses(): View

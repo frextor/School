@@ -1,30 +1,28 @@
 @extends('layouts.app')
 
-@section('title', 'Mon planning')
+@section('title', 'Mon emploi du temps')
 
 @section('content')
-    <h1>Mon planning</h1>
+@php
+    $urlSemaine = fn ($lundi) => route('espace-intervenant.planning', ['semaine' => $lundi->format('Y-m-d')]);
+@endphp
 
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Cours</th>
-                <th>Établissement</th>
-                <th>Classe</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($creneaux as $creneau)
-                <tr>
-                    <td>{{ $creneau->date_debut->format('d/m/Y H:i') }} — {{ $creneau->date_fin->format('H:i') }}</td>
-                    <td>{{ $creneau->cours?->nom_cours }}</td>
-                    <td>{{ $creneau->etablissement?->nom_etablissement }}</td>
-                    <td>{{ $creneau->classe?->classe ?? $creneau->id_classe }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="4">Aucun cours planifié.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+<div class="page-head">
+    <div>
+        <h1>Mon emploi du temps</h1>
+        <p class="page-sub">Mes cours de la semaine, avec la classe et la salle.</p>
+    </div>
+    @if (Route::has('espace-intervenant.classes'))
+        <div class="page-actions">
+            <a class="btn btn-ghost" href="{{ route('espace-intervenant.classes') }}">Mes classes</a>
+        </div>
+    @endif
+</div>
+
+@include('partials.calendrier-semaine', [
+    'semaine' => $semaine,
+    'debutSemaine' => $debutSemaine,
+    'urlSemaine' => $urlSemaine,
+    'vide' => 'Aucun cours planifié cette semaine.',
+])
 @endsection

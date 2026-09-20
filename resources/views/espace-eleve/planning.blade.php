@@ -1,30 +1,23 @@
 @extends('layouts.app')
 
-@section('title', 'Mon planning')
+@section('title', 'Mon emploi du temps')
 
 @section('content')
-    <h1>Mon planning</h1>
+@php
+    $urlSemaine = fn ($lundi) => route('espace-eleve.planning', ['semaine' => $lundi->format('Y-m-d')]);
+@endphp
 
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Cours</th>
-                <th>Intervenant</th>
-                <th>Salle</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($creneaux as $creneau)
-                <tr>
-                    <td>{{ $creneau->date_debut->format('d/m/Y H:i') }} — {{ $creneau->date_fin->format('H:i') }}</td>
-                    <td>{{ $creneau->cours?->nom_cours }}</td>
-                    <td>{{ $creneau->intervenant?->nom }} {{ $creneau->intervenant?->prenom }}</td>
-                    <td>{{ $creneau->id_salle ?: '-' }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="4">Aucun cours à venir.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+<div class="page-head">
+    <div>
+        <h1>Mon emploi du temps</h1>
+        <p class="page-sub">Les cours de ma classe, semaine par semaine.</p>
+    </div>
+</div>
+
+@include('partials.calendrier-semaine', [
+    'semaine' => $semaine,
+    'debutSemaine' => $debutSemaine,
+    'urlSemaine' => $urlSemaine,
+    'vide' => 'Aucun cours cette semaine.',
+])
 @endsection

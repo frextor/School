@@ -7,6 +7,8 @@ use App\Models\Classe;
 use App\Models\Cours;
 use App\Models\Etablissement;
 use App\Models\Intervenant;
+use App\Support\Calendrier;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,17 +21,88 @@ use Illuminate\View\View;
  */
 class PlanningController extends Controller
 {
+    /**
+     * Emploi du temps de la semaine (vue par défaut) ou liste des créneaux.
+     *
+     * La liste restait la seule lecture possible : pour répondre à « la salle
+     * 12 est-elle libre jeudi à 10 h ? », il fallait faire la grille de tête.
+     * Le calendrier répond à vue d'œil, la liste reste disponible pour les
+     * retouches en série.
+     */
     public function index(Request $request): View
     {
-        $creneaux = ActiviteIntervenant::with(['intervenant', 'etablissement', 'cours', 'classe'])
-            ->when($request->filled('id_intervenant'), fn ($q) => $q->where('id_intervenant', $request->integer('id_intervenant')))
-            ->when($request->filled('id_etablissement'), fn ($q) => $q->where('id_etablissement', $request->integer('id_etablissement')))
-            ->when($request->filled('annee'), fn ($q) => $q->where('annee', $request->integer('annee')))
-            ->orderByDesc('date_debut')
-            ->paginate(25)
-            ->withQueryString();
+        $filtres = [
+            'intervenant' => $request->filled('intervenant') ? $request->integer('intervenant') : null,
+            'campus' => $request->filled('campus') ? $request->integer('campus') : null,
+            'classe' => $request->filled('classe') ? $request->integer('classe') : null,
+        ];
 
-        return view('planning.index', ['creneaux' => $creneaux]);
+        $vue = $request->string('vue')->toString() === 'liste' ? 'liste' : 'calendrier';
+        $debutSemaine = $this->debutSemaine($request);
+
+        $base = fn () => ActiviteIntervenant::with(['intervenant', 'etablissement', 'cours', 'classe'])
+            ->when($filtres['intervenant'], fn ($q, $v) => $q->where('id_intervenant', $v))
+            ->when($filtres['campus'], fn ($q, $v) => $q->where('id_etablissement', $v))
+            ->when($filtres['classe'], fn ($q, $v) => $q->where('id_classe', $v));
+
+        $creneaux = $vue === 'liste'
+            ? $base()->orderByDesc('date_debut')->paginate(25)->withQueryString()
+            : null;
+
+        $semaine = null;
+
+        // Une grille horaire ne se lit que pour une classe ou un enseignant :
+        // sans filtre, les 17 classes de l'école se superposent sur les mêmes
+        // créneaux et plus rien n'est lisible. On demande donc de choisir.
+        $cible = $filtres['classe'] || $filtres['intervenant'];
+
+        if ($vue === 'calendrier' && $cible) {
+            $duJour = $base()
+                ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
+                ->orderBy('date_debut')
+                ->get();
+
+            $semaine = Calendrier::semaine($duJour->map(fn (ActiviteIntervenant $c) => [
+                'debut' => $c->date_debut,
+                'fin' => $c->date_fin,
+                'titre' => $c->cours?->nom_cours ?: 'Cours',
+                'meta' => collect([
+                    $c->classe?->classe,
+                    $c->intervenant?->nom,
+                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                ])->filter()->implode(' · '),
+                // La couleur de la classe rend la grille lisible d'un coup d'œil.
+                'couleur' => $c->classe?->couleur ?: '#4f46e5',
+                'url' => route('planning.edit', $c),
+            ]), $debutSemaine);
+        }
+
+        return view('planning.index', [
+            'vue' => $vue,
+            'cible' => $cible,
+            'filtres' => $filtres,
+            'creneaux' => $creneaux,
+            'semaine' => $semaine,
+            'debutSemaine' => $debutSemaine,
+            'intervenants' => Intervenant::orderBy('nom')->get(),
+            'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
+            'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'couleur']),
+        ]);
+    }
+
+    /** Lundi de la semaine demandée (`?semaine=AAAA-MM-JJ`), celui d'aujourd'hui par défaut. */
+    private function debutSemaine(Request $request): Carbon
+    {
+        if ($request->filled('semaine')) {
+            try {
+                return Carbon::parse($request->string('semaine'))->startOfWeek();
+            } catch (\Exception) {
+                // Date illisible dans l'URL : on retombe sur la semaine courante
+                // plutôt que de renvoyer une erreur.
+            }
+        }
+
+        return Carbon::now()->startOfWeek();
     }
 
     public function create(): View

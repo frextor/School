@@ -6,6 +6,8 @@ use App\Models\ActiviteIntervenant;
 use App\Models\BulletinEleve;
 use App\Models\Note;
 use App\Models\SnBulletin;
+use App\Support\Calendrier;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -36,17 +38,31 @@ class StudentSpaceController extends Controller
         return view('espace-eleve.evaluations', ['notesParUe' => $notes]);
     }
 
-    public function myPlanning(): View
+    /** Emploi du temps de la semaine, navigable (`?semaine=AAAA-MM-JJ`). */
+    public function myPlanning(Request $request): View
     {
         $eleve = Auth::guard('eleve')->user()->eleve;
+        $debutSemaine = Calendrier::debutSemaine($request->string('semaine')->toString());
 
         $creneaux = ActiviteIntervenant::with(['intervenant', 'cours'])
             ->where('id_classe', $eleve->id_classe)
-            ->where('date_debut', '>=', now()->subDays(7))
+            ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
             ->orderBy('date_debut')
             ->get();
 
-        return view('espace-eleve.planning', ['creneaux' => $creneaux]);
+        return view('espace-eleve.planning', [
+            'debutSemaine' => $debutSemaine,
+            'semaine' => Calendrier::semaine($creneaux->map(fn (ActiviteIntervenant $c) => [
+                'debut' => $c->date_debut,
+                'fin' => $c->date_fin,
+                'titre' => $c->cours?->nom_cours ?: 'Cours',
+                'meta' => collect([
+                    trim(($c->intervenant?->nom ?? '').' '.($c->intervenant?->prenom ?? '')) ?: null,
+                    $c->id_salle ? 'Salle '.$c->id_salle : null,
+                ])->filter()->implode(' · '),
+                'couleur' => Calendrier::couleurMatiere($c->cours?->nom_cours),
+            ]), $debutSemaine),
+        ]);
     }
 
     public function myBulletins(): View
