@@ -4,9 +4,17 @@
 
 @section('content')
 @php
-    $anneeDefaut = (int) old('annee', date('Y'));
-    $semestreDefaut = old('semestre', '');
-    $sessionDefaut = (int) old('session', 0);
+    // Valeurs par d\u00e9faut : une resoumission apr\u00e8s erreur (`old`) l'emporte, puis
+    // les param\u00e8tres pass\u00e9s par le raccourci « G\u00e9n\u00e9rer » de la liste des bulletins.
+    $anneeDefaut = (int) old('annee', request('annee', date('Y')));
+    $semestreDefaut = (string) old('semestre', request('semestre', ''));
+    // Un semestre \u00e0 0 et un semestre vide d\u00e9signent la m\u00eame chose (ann\u00e9e compl\u00e8te).
+    $semestreDefaut = $semestreDefaut === '0' ? '' : $semestreDefaut;
+    $sessionDefaut = (int) old('session', request('session', 0));
+    $etablissementDefaut = old('id_etablissement', request('id_etablissement'));
+    $niveauDefaut = old('id_niveau', request('id_niveau'));
+    $classeDefaut = old('id_classe', request('id_classe'));
+    $eleveDefaut = old('id_eleve', request('id_eleve'));
     $classesJson = $classes->map(fn ($c) => [
         'id_classe' => $c->id_classe,
         'classe' => $c->classe,
@@ -60,7 +68,7 @@
                     <span>Établissement</span>
                     <select name="id_etablissement" required data-etablissement>
                         @foreach ($etablissements as $etablissement)
-                            <option value="{{ $etablissement->id_etablissement }}" @selected(old('id_etablissement') == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
+                            <option value="{{ $etablissement->id_etablissement }}" @selected($etablissementDefaut == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -70,21 +78,21 @@
                     <select name="id_niveau" required data-niveau>
                         <option value="">— Choisir —</option>
                         @foreach ($niveaux as $niveau)
-                            <option value="{{ $niveau->id_niveau }}" @selected(old('id_niveau') == $niveau->id_niveau)>{{ $niveau->nom_niveau }}</option>
+                            <option value="{{ $niveau->id_niveau }}" @selected($niveauDefaut == $niveau->id_niveau)>{{ $niveau->nom_niveau }}</option>
                         @endforeach
                     </select>
                 </label>
 
                 <label class="stack">
                     <span>Classe</span>
-                    <select data-classe disabled>
+                    <select data-classe data-preselect="{{ $classeDefaut }}" disabled>
                         <option value="">Choisir un niveau d'abord</option>
                     </select>
                 </label>
 
                 <label class="stack">
                     <span>Élève</span>
-                    <select name="id_eleve" required data-eleve disabled>
+                    <select name="id_eleve" required data-eleve data-preselect="{{ $eleveDefaut }}" disabled>
                         <option value="">Choisir une classe d'abord</option>
                     </select>
                 </label>
@@ -392,6 +400,13 @@
                 return '<option value="' + c.id_classe + '">' + c.classe + '</option>';
             }).join('');
             classe.disabled = false;
+
+            if (classe.dataset.preselect) {
+                classe.value = classe.dataset.preselect;
+                classe.dataset.preselect = '';
+                if (classe.value) classe.dispatchEvent(new Event('change'));
+            }
+
             syncRecap();
         });
 
@@ -421,6 +436,12 @@
                         return '<option value="' + e.id_eleve + '">' + ((e.nom || '') + ' ' + (e.prenom || '')).trim() + '</option>';
                     }).join('');
                     eleve.disabled = false;
+
+                    if (eleve.dataset.preselect) {
+                        eleve.value = eleve.dataset.preselect;
+                        eleve.dataset.preselect = '';
+                    }
+
                     syncRecap();
                 })
                 .catch(function () {

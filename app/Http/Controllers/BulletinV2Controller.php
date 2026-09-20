@@ -36,19 +36,86 @@ use Illuminate\View\View;
  */
 class BulletinV2Controller extends Controller
 {
+    /**
+     * Écran de consultation des bulletins : on choisit une population
+     * (campus / niveau / classe) et une période (année scolaire / semestre /
+     * session), et la recherche renvoie la **liste des élèves** concernés avec,
+     * pour chacun, le bulletin déjà généré pour cette période s'il existe.
+     *
+     * Auparavant cet écran listait les 30 derniers PDF générés, ce qui ne
+     * permettait pas de répondre à la question posée au quotidien : « qui,
+     * dans cette classe, n'a pas encore son bulletin du semestre 1 ? ».
+     */
     public function index(Request $request): View
     {
-        $bulletins = SnBulletin::with(['eleve.contact', 'etablissement'])
-            ->when($request->filled('id_etablissement'), fn ($q) => $q->where('id_etablissement', $request->integer('id_etablissement')))
-            ->when($request->filled('annee'), fn ($q) => $q->where('annee', $request->integer('annee')))
-            ->when($request->filled('semestre'), fn ($q) => $q->where('semestre', $request->integer('semestre')))
-            ->orderByDesc('date_insert')
-            ->limit(30)
-            ->get();
+        $filtres = [
+            'campus' => $request->filled('campus') ? $request->integer('campus') : null,
+            'niveau' => $request->filled('niveau') ? $request->integer('niveau') : null,
+            'classe' => $request->filled('classe') ? $request->integer('classe') : null,
+            'annee' => $request->filled('annee') ? $request->integer('annee') : null,
+            'semestre' => $request->filled('semestre') ? $request->integer('semestre') : null,
+            'session' => $request->filled('session') ? $request->integer('session') : null,
+        ];
+
+        // La liste d'élèves n'apparaît qu'après une recherche explicite : sans
+        // cela l'écran afficherait les 400 élèves de l'école sans contexte.
+        $recherche = $request->has('recherche');
+        $eleves = null;
+        $bulletinsParEleve = collect();
+
+        if ($recherche) {
+            $eleves = Eleve::query()
+                ->with(['contact', 'niveau', 'classe.etablissement'])
+                ->select('amos_eleves.*')
+                // Jointure contact pour trier par nom (la relation Eloquent ne
+                // suffit pas), même approche que la liste des élèves.
+                ->leftJoin('amos_contacts', 'amos_contacts.id_contact', '=', 'amos_eleves.id_contact')
+                ->where('amos_eleves.visible', true)
+                ->where('amos_eleves.profil', '!=', Eleve::PROFIL_CANDIDAT)
+                // Campus : porté par la classe (amos_eleves n'a pas de colonne
+                // établissement), niveau et classe portés par l'élève.
+                ->when($filtres['campus'], fn ($q, $v) => $q->whereHas('classe', fn ($c) => $c->where('id_etablissement', $v)))
+                ->when($filtres['niveau'], fn ($q, $v) => $q->where('amos_eleves.id_niveau', $v))
+                ->when($filtres['classe'], fn ($q, $v) => $q->where('amos_eleves.id_classe', $v))
+                ->orderBy('amos_contacts.nom')
+                ->orderBy('amos_contacts.prenom')
+                ->paginate(50)
+                ->withQueryString();
+
+            // Bulletin de la période demandée, par élève : le plus récent gagne
+            // (la table garde l'historique des regénérations).
+            $bulletinsParEleve = SnBulletin::query()
+                ->whereIn('id_eleve', collect($eleves->items())->pluck('id_eleve'))
+                ->when($filtres['annee'], fn ($q, $v) => $q->where('annee', $v))
+                ->when($filtres['semestre'] !== null, fn ($q) => $q->where('semestre', $filtres['semestre']))
+                ->when($filtres['session'] !== null, fn ($q) => $q->where('session', $filtres['session']))
+                ->orderByDesc('date_insert')
+                ->get()
+                ->groupBy('id_eleve')
+                ->map(fn ($groupe) => $groupe->first());
+        }
+
+        // Années proposées : celles réellement présentes en base, complétées par
+        // l'année scolaire en cours pour pouvoir consulter une période vierge.
+        $annees = SnBulletin::query()->distinct()->orderByDesc('annee')->pluck('annee')
+            ->push((int) date('Y'))
+            ->unique()
+            ->sortDesc()
+            ->values();
 
         return view('bulletin-v2.index', [
-            'bulletins' => $bulletins,
+            'recherche' => $recherche,
+            'filtres' => $filtres,
+            'eleves' => $eleves,
+            'bulletinsParEleve' => $bulletinsParEleve,
+            'annees' => $annees,
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
+            'niveaux' => Niveau::orderBy('nom_niveau')->get(),
+            'classes' => Classe::orderBy('classe')->get(['id_classe', 'classe', 'id_niveau', 'id_etablissement']),
+            // Sans recherche, l'écran reste utile : derniers PDF produits.
+            'derniers' => $recherche
+                ? collect()
+                : SnBulletin::with(['eleve.contact', 'etablissement'])->orderByDesc('date_insert')->limit(10)->get(),
         ]);
     }
 
@@ -70,7 +137,9 @@ class BulletinV2Controller extends Controller
     public function studentsForClass(Request $request, Classe $classe): JsonResponse
     {
         $eleves = Eleve::where('id_classe', $classe->id_classe)
-            ->when($request->filled('annee_rentree'), fn ($q) => $q->where('annee_rentree', $request->integer('annee_rentree')))
+            // `annee_rentree` est porté par le contact, pas par `amos_eleves` :
+            // filtrer directement sur l'élève levait une erreur SQL.
+            ->when($request->filled('annee_rentree'), fn ($q) => $q->whereHas('contact', fn ($c) => $c->where('annee_rentree', $request->integer('annee_rentree'))))
             ->with('contact')
             ->get()
             ->map(fn (Eleve $e) => [
