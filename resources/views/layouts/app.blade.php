@@ -155,7 +155,10 @@
 
         .menu-toggle { display: none; }
 
-        .content { padding: 26px 24px 48px; max-width: 1240px; width: 100%; margin: 0 auto; }
+        /* Largeur de contenu : les listes (8 à 10 colonnes) respirent sur
+           1720px, tandis que les écrans de lecture restent bornés plus bas
+           par `form` et `.page-sub` pour ne pas devenir illisibles. */
+        .content { padding: 26px 32px 48px; max-width: 1720px; width: 100%; margin: 0 auto; }
         .content > *:first-child { margin-top: 0; }
 
         /* ---------- En-tête de page / fil d'Ariane ---------- */
@@ -309,7 +312,9 @@
             background: var(--surface); border-radius: var(--radius-lg); overflow: hidden;
             box-shadow: var(--shadow-sm); border: 1px solid var(--border);
         }
-        th, td { border-bottom: 1px solid var(--border-soft); padding: .7rem .9rem; text-align: left; font-size: 13px; }
+        th, td { border-bottom: 1px solid var(--border-soft); padding: .72rem 1.1rem; text-align: left; font-size: 13px; }
+        th:first-child, td:first-child { padding-left: 1.3rem; }
+        th:last-child, td:last-child { padding-right: 1.3rem; }
         th { background: #fafbfd; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
         tbody tr:last-child td { border-bottom: none; }
         tbody tr { transition: background .1s ease; }
@@ -413,7 +418,7 @@
         .bulk-actions { display: flex; gap: 7px; margin-left: auto; flex-wrap: wrap; }
 
         .table-scroll { overflow-x: auto; }
-        .data-table { min-width: 1040px; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+        .data-table { min-width: 940px; width: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
         .data-table th { position: sticky; top: 0; z-index: 1; white-space: nowrap; }
         .data-table th a { display: inline-flex; align-items: center; gap: 5px; color: inherit; }
         .data-table th a:hover { color: var(--brand); }
@@ -439,7 +444,7 @@
         .cell-name { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
         .cell-name:hover { color: var(--brand); }
         .cell-sub { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-        .cell-wide { max-width: 280px; }
+        .cell-wide { max-width: 420px; }
         .num { font-variant-numeric: tabular-nums; color: #585e72; white-space: nowrap; }
         .pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
         .dot-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
@@ -467,6 +472,12 @@
         .pagination-item.disabled { color: #c7cbd6; cursor: default; background: transparent; border-color: transparent; }
 
         /* ---------- Responsive ---------- */
+        @media (max-width: 1280px) {
+            .content { padding: 26px 20px 48px; }
+            th, td { padding: .7rem .8rem; }
+            th:first-child, td:first-child { padding-left: 1rem; }
+            th:last-child, td:last-child { padding-right: 1rem; }
+        }
         @media (max-width: 980px) {
             .auth-panel { display: none; }
             .auth-form-col { flex: 1 1 100%; }
