@@ -27,20 +27,20 @@
     // Le montant fait foi côté échéancier : `montant_formation` est une
     // colonne héritée, vide depuis que la facturation passe par les
     // échéances. On ne retombe dessus que faute d'échéancier.
-    $lignes = $paiements ? collect($paiements) : collect();
-    $montant = $lignes->isNotEmpty()
-        ? (float) $lignes->sum('montant')
+    $echeancier = $paiements ? collect($paiements) : collect();
+    $montant = $echeancier->isNotEmpty()
+        ? (float) $echeancier->sum('montant')
         : (float) ($eleve->montant_formation ?: 0);
-    $encaisse = $lignes->isNotEmpty() ? (float) $lignes->where('encaisse', true)->sum('montant') : null;
+    $encaisse = $echeancier->isNotEmpty() ? (float) $echeancier->where('encaisse', true)->sum('montant') : null;
     $reste = $encaisse === null ? null : max(0, $montant - $encaisse);
     $progression = $montant > 0 && $encaisse !== null ? min(100, round($encaisse / $montant * 100)) : null;
-    $enRetard = $lignes->filter(fn ($e) => ! $e->encaisse && $e->date_echeance && $e->date_echeance->isPast())->count();
+    $enRetard = $echeancier->filter(fn ($e) => ! $e->encaisse && $e->date_echeance && $e->date_echeance->isPast())->count();
     $dh = fn ($v) => number_format((float) $v, 0, ',', ' ').' DH';
 
     // Statut de règlement déduit de l'échéancier plutôt que de la colonne
     // `paiement_formation`, qui n'est plus tenue à jour.
     [$statutPaiement, $paiementTint] = match (true) {
-        $lignes->isEmpty() => ['Aucun échéancier', ['#eef1f6', '#475569']],
+        $echeancier->isEmpty() => ['Aucun échéancier', ['#eef1f6', '#475569']],
         $reste !== null && $reste <= 0 => ['Soldé', ['#e7f6f2', '#0f766e']],
         $enRetard > 0 => [$enRetard.' échéance(s) en retard', ['#fdecef', '#be123c']],
         default => ['Règlement en cours', ['#fdf3e3', '#92400e']],
@@ -382,8 +382,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($notesParMatiere as $matiere => $lignes)
-                                    @foreach ($lignes as $ligne)
+                                @foreach ($notesParMatiere as $matiere => $notesMatiere)
+                                    @foreach ($notesMatiere as $ligne)
                                         @php $valeur = is_numeric($ligne->note) ? (float) $ligne->note : null; @endphp
                                         <tr>
                                             <td class="strong">{{ $loop->first ? $matiere : '' }}</td>
@@ -477,7 +477,7 @@
             <div class="field-label">Règlement de la formation</div>
             <div class="money">
                 <span class="money-value">{{ $montant > 0 ? $dh($montant) : '—' }}</span>
-                <span class="money-hint">{{ $lignes->count() ? $lignes->count().' échéances' : 'montant total' }}</span>
+                <span class="money-hint">{{ $echeancier->count() ? $echeancier->count().' échéance'.($echeancier->count() > 1 ? 's' : '') : 'montant total' }}</span>
             </div>
             @if ($progression !== null)
                 <div class="bar"><span style="width:{{ $progression }}%"></span></div>
