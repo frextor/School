@@ -5,96 +5,126 @@
 @section('content')
 @php
     $contact = $eleve?->contact;
-    $prenom = $contact?->prenom ?: 'à vous';
+    $prenom = $contact?->prenom ?: '';
+    $initiales = mb_strtoupper(mb_substr($contact?->prenom ?: 'E', 0, 1).mb_substr($contact?->nom ?: '', 0, 1));
+    $note20 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2, ',', ' ');
 @endphp
 
-<div class="page-head">
-    <div>
-        <h1>Bonjour {{ $prenom }}</h1>
-        <p class="page-sub">
-            {{ $eleve?->classe?->classe ? 'Classe '.$eleve->classe->classe : 'Élève' }}
-            @if ($eleve?->niveau?->nom_niveau) · {{ $eleve->niveau->nom_niveau }} @endif
-        </p>
+{{-- Bandeau d'identité : ancre l'écran et porte les chiffres clés, au lieu
+     de trois cartes blanches à moitié vides. --}}
+<section class="he">
+    <div class="he-id">
+        <span class="he-avatar">{{ $initiales }}</span>
+        <span class="he-txt">
+            <span class="he-hello">Bonjour {{ $prenom }}</span>
+            <span class="he-sub">
+                {{ $eleve?->classe?->classe ? 'Classe '.$eleve->classe->classe : 'Élève' }}
+                @if ($eleve?->niveau?->nom_niveau) · {{ $eleve->niveau->nom_niveau }} @endif
+            </span>
+        </span>
     </div>
-</div>
+
+    <div class="he-stats">
+        <div class="he-stat">
+            <strong>{{ $coursSemaine }}</strong>
+            <span>cours cette semaine</span>
+        </div>
+        <div class="he-stat">
+            <strong>{{ $note20($moyenne) }}</strong>
+            <span>moyenne sur 20</span>
+        </div>
+        <div class="he-stat">
+            <strong>{{ $nbBulletins }}</strong>
+            <span>bulletin{{ $nbBulletins > 1 ? 's' : '' }}</span>
+        </div>
+    </div>
+</section>
 
 <div class="ho-grid">
-    {{-- Prochain cours : la question que l'on se pose en ouvrant l'espace. --}}
-    <section class="ho-card ho-next">
-        <span class="ho-label">Prochain cours</span>
-        @if ($prochainCours)
-            <h2>{{ $prochainCours->cours?->nom_cours ?: 'Cours' }}</h2>
-            <p class="ho-quand">{{ ucfirst($prochainCours->date_debut->translatedFormat('l j F')) }} · {{ $prochainCours->date_debut->format('H:i') }} – {{ $prochainCours->date_fin->format('H:i') }}</p>
-            <div class="ho-meta">
-                @if ($prochainCours->salle?->nom_salle)
-                    <span>@include('partials.icon', ['n' => 'door', 's' => 14, 'c' => '#585e72', 'w' => 2]){{ $prochainCours->salle->nom_salle }}</span>
-                @endif
-                @if ($prochainCours->intervenant)
-                    <span>@include('partials.icon', ['n' => 'school', 's' => 14, 'c' => '#585e72', 'w' => 2]){{ trim($prochainCours->intervenant->nom.' '.$prochainCours->intervenant->prenom) }}</span>
-                @endif
-            </div>
-        @else
-            <h2 class="ho-rien">Aucun cours à venir</h2>
-            <p class="ho-quand">Rien n'est planifié pour l'instant.</p>
-        @endif
-        <a href="{{ route('espace-eleve.planning') }}" class="ho-lien">
-            Voir mon emploi du temps @include('partials.icon', ['n' => 'arrow-right', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
-        </a>
-    </section>
+    <section class="ho-card ho-large">
+        <div class="ho-tete">
+            <span class="ho-label">{{ $coursPasses ? 'Mes derniers cours' : 'Mes prochains cours' }}</span>
+            <a href="{{ route('espace-eleve.planning') }}" class="ho-tete-lien">
+                Emploi du temps @include('partials.icon', ['n' => 'arrow-right', 's' => 13, 'c' => 'var(--brand)', 'w' => 2])
+            </a>
+        </div>
 
-    <section class="ho-card ho-chiffre">
-        <span class="ho-label">Cette semaine</span>
-        <strong>{{ $coursSemaine }}</strong>
-        <span class="ho-unite">cours planifiés</span>
-    </section>
-
-    <section class="ho-card ho-chiffre">
-        <span class="ho-label">Moyenne des notes</span>
-        <strong class="@if ($moyenne !== null && $moyenne < 10) is-low @endif">
-            {{ $moyenne !== null ? number_format($moyenne, 2, ',', ' ') : '—' }}
-        </strong>
-        <span class="ho-unite">sur 20, notes publiées</span>
-    </section>
-
-    {{-- Dernières notes publiées. --}}
-    <section class="ho-card ho-notes ho-large">
-        <span class="ho-label">Mes dernières notes</span>
-
-        @forelse ($dernieresNotes as $note)
-            @php $valeur = is_numeric($note->note) ? (float) $note->note : null; @endphp
-            <div class="ho-note">
-                <span class="ho-note-m">{{ $note->evaluation?->matiere?->nom_cours ?: 'Matière' }}</span>
-                <span class="ho-note-v @if ($valeur !== null && $valeur < 10) is-low @endif">
-                    {{ $valeur !== null ? number_format($valeur, 2, ',', ' ').' / 20' : '—' }}
+        @forelse ($prochainsCours as $seance)
+            <div class="ho-cours">
+                <span class="ho-cours-h">
+                    <span class="ho-cours-jour">{{ ucfirst($seance->date_debut->translatedFormat('D j')) }}</span>
+                    <span class="ho-cours-heure">{{ $seance->date_debut->format('H:i') }}</span>
                 </span>
+                <span class="ho-cours-txt">
+                    <span class="ho-cours-nom">{{ $seance->cours?->nom_cours ?: 'Cours' }}</span>
+                    <span class="ho-cours-meta">
+                        {{ collect([
+                            $seance->salle?->nom_salle ? 'Salle '.$seance->salle->nom_salle : null,
+                            trim(($seance->intervenant?->nom ?? '').' '.($seance->intervenant?->prenom ?? '')) ?: null,
+                        ])->filter()->implode(' · ') ?: '—' }}
+                    </span>
+                </span>
+                <span class="ho-cours-duree">{{ $seance->date_debut->diffInMinutes($seance->date_fin) }} min</span>
             </div>
         @empty
-            <p class="ho-vide">Aucune note publiée pour le moment.</p>
+            <p class="ho-vide">Aucun cours n'est planifié pour votre classe.</p>
         @endforelse
 
-        @if ($dernieresNotes->isNotEmpty())
-            <a href="{{ route('espace-eleve.evaluations') }}" class="ho-lien">
-                Toutes mes notes @include('partials.icon', ['n' => 'arrow-right', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
-            </a>
+        @if ($coursPasses && $prochainsCours->isNotEmpty())
+            <p class="ho-note-bas">Aucun cours à venir : voici vos dernières séances.</p>
         @endif
     </section>
 
     <section class="ho-card ho-large">
-        <span class="ho-label">Mon dernier bulletin</span>
+        <div class="ho-tete">
+            <span class="ho-label">Mes dernières notes</span>
+            @if ($dernieresNotes->isNotEmpty())
+                <a href="{{ route('espace-eleve.evaluations') }}" class="ho-tete-lien">
+                    Toutes mes notes @include('partials.icon', ['n' => 'arrow-right', 's' => 13, 'c' => 'var(--brand)', 'w' => 2])
+                </a>
+            @endif
+        </div>
+
+        @forelse ($dernieresNotes as $note)
+            @php $valeur = is_numeric($note->note) ? (float) $note->note : null; @endphp
+            <div class="ho-note">
+                <span class="ho-note-txt">
+                    <span class="ho-note-m">{{ $note->evaluation?->matiere?->nom_cours ?: 'Matière' }}</span>
+                    <span class="ho-note-d">{{ $note->date_saisie?->format('d/m/Y') ?: '' }}</span>
+                </span>
+                <span class="ho-badge @if ($valeur !== null && $valeur < 10) is-low @endif">{{ $note20($valeur) }}<small>/20</small></span>
+            </div>
+        @empty
+            <p class="ho-vide">Aucune note publiée pour le moment.</p>
+        @endforelse
+    </section>
+
+    {{-- Bulletin : carte large et horizontale, pour ne pas laisser un vide. --}}
+    <section class="ho-card ho-full ho-bulletin">
+        <span class="ho-icone">@include('partials.icon', ['n' => 'file', 's' => 22, 'c' => 'var(--brand-deep)', 'w' => 1.8])</span>
+        <span class="ho-bul-txt">
+            <span class="ho-label">Mon dernier bulletin</span>
+            @if ($dernierBulletin)
+                <span class="ho-bul-titre">
+                    {{ $dernierBulletin->semestre ? 'Semestre '.$dernierBulletin->semestre : 'Année complète' }}
+                    · {{ $dernierBulletin->annee }}-{{ $dernierBulletin->annee + 1 }}
+                </span>
+                <span class="ho-bul-meta">
+                    @if ($dernierBulletin->date_insert) Édité le {{ $dernierBulletin->date_insert->format('d/m/Y') }} @endif
+                </span>
+            @else
+                <span class="ho-bul-titre is-vide">Aucun bulletin pour l'instant</span>
+                <span class="ho-bul-meta">Vos bulletins apparaîtront ici dès que l'école les aura édités.</span>
+            @endif
+        </span>
+
         @if ($dernierBulletin)
-            <h2>{{ $dernierBulletin->annee }}-{{ $dernierBulletin->annee + 1 }}</h2>
-            <p class="ho-quand">
-                {{ $dernierBulletin->semestre ? 'Semestre '.$dernierBulletin->semestre : 'Année complète' }}
-                @if ($dernierBulletin->date_insert) · édité le {{ $dernierBulletin->date_insert->format('d/m/Y') }} @endif
-            </p>
-            <a href="{{ route('espace-eleve.bulletins.download', $dernierBulletin) }}" target="_blank" class="ho-lien">
-                Ouvrir le PDF @include('partials.icon', ['n' => 'download', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
+            <a href="{{ route('espace-eleve.bulletins.download', $dernierBulletin) }}" target="_blank" class="btn">
+                @include('partials.icon', ['n' => 'download', 's' => 15, 'c' => '#fff', 'w' => 2])Ouvrir le PDF
             </a>
         @else
-            <h2 class="ho-rien">Aucun bulletin</h2>
-            <p class="ho-quand">Vos bulletins apparaîtront ici dès qu'ils seront édités.</p>
+            <a href="{{ route('espace-eleve.bulletins') }}" class="btn btn-ghost">Voir mes bulletins</a>
         @endif
     </section>
 </div>
-
 @endsection

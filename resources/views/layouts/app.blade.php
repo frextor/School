@@ -514,7 +514,66 @@
         .ho-note-m { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ho-note-v { margin-left: auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .ho-note-v.is-low { color: var(--danger); }
-        .ho-vide { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+        .ho-vide { margin: 16px 0; font-size: 13px; color: var(--muted); text-align: center; }
+
+        /* Bandeau d'identite d'un espace personnel. */
+        .he {
+            display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+            background: linear-gradient(135deg, #4f46e5, #6366f1 45%, #4338ca);
+            border-radius: 16px; padding: 22px 26px; margin-bottom: 14px; color: #fff;
+        }
+        .he-id { display: flex; align-items: center; gap: 15px; min-width: 0; }
+        .he-avatar {
+            width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+            background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.28);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px; font-weight: 700; letter-spacing: .01em;
+        }
+        .he-txt { min-width: 0; }
+        .he-hello { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; }
+        .he-sub { display: block; margin-top: 3px; font-size: 13px; color: rgba(255,255,255,.82); }
+        .he-stats { display: flex; gap: 32px; margin-left: auto; flex-wrap: wrap; }
+        .he-stat strong { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+        .he-stat span { display: block; margin-top: 2px; font-size: 11.5px; color: rgba(255,255,255,.78); }
+
+        /* En-tete d'une carte : intitule a gauche, lien de suite a droite. */
+        .ho-tete { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+        .ho-tete-lien { margin-left: auto; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+        .ho-cours { display: flex; align-items: center; gap: 13px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+        .ho-card .ho-cours:last-of-type { border-bottom: 0; }
+        .ho-cours-h { width: 68px; flex-shrink: 0; }
+        .ho-cours-jour { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+        .ho-cours-heure { display: block; font-size: 14px; font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; }
+        .ho-cours-txt { min-width: 0; }
+        .ho-cours-nom { display: block; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ho-cours-meta { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+        .ho-cours-duree { margin-left: auto; flex-shrink: 0; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+        .ho-note-bas { margin: 12px 0 0; font-size: 11.5px; color: var(--muted); }
+
+        .ho-note { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+        .ho-card .ho-note:last-of-type { border-bottom: 0; }
+        .ho-note-txt { min-width: 0; }
+        .ho-note-d { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+        .ho-badge {
+            margin-left: auto; flex-shrink: 0; padding: 5px 11px; border-radius: 999px;
+            background: var(--brand-light); color: var(--brand-deep);
+            font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+        }
+        .ho-badge small { font-size: 10.5px; font-weight: 600; opacity: .7; margin-left: 1px; }
+        .ho-badge.is-low { background: var(--danger-bg); color: var(--danger); }
+
+        .ho-full { grid-column: 1 / -1; }
+        .ho-bulletin { flex-direction: row; align-items: center; gap: 15px; }
+        .ho-icone {
+            width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; background: var(--brand-light);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ho-bul-txt { min-width: 0; }
+        .ho-bul-titre { display: block; margin-top: 5px; font-size: 15px; font-weight: 700; letter-spacing: -.015em; }
+        .ho-bul-titre.is-vide { color: var(--faint); }
+        .ho-bul-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .ho-bulletin .btn { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px; }
 
         @media (max-width: 1100px) {
             .ho-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -522,6 +581,10 @@
         @media (max-width: 620px) {
             .ho-grid { grid-template-columns: minmax(0, 1fr); }
             .ho-next, .ho-large { grid-column: span 1; }
+            .he { padding: 18px; gap: 16px; }
+            .he-stats { margin-left: 0; gap: 22px; }
+            .ho-bulletin { flex-wrap: wrap; }
+            .ho-bulletin .btn { margin-left: 0; width: 100%; justify-content: center; }
         }
 
         /* ---------- Responsive ---------- */
@@ -692,8 +755,8 @@
             <a href="{{ route($homeRoute) }}" class="brand" style="border:0;padding:0;gap:10px">
                 <span class="brand-mark">@include('partials.icon', ['n' => 'cap', 's' => 17, 'c' => '#fff', 'w' => 2])</span>
                 <span class="brand-text">
-                    <span class="brand-name">{{ $portalLabel }}</span>
-                    <span class="brand-sub">{{ config('app.name') }}</span>
+                    <span class="brand-name">{{ config('app.name') }}</span>
+                    <span class="brand-sub">{{ $portalLabel }}</span>
                 </span>
             </a>
             <div class="topbar-right">

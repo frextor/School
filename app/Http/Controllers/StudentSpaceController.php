@@ -35,16 +35,31 @@ class StudentSpaceController extends Controller
 
         $notesPubliees = Note::where('id_eleve', $eleve->id_eleve)->where('publier_eleve', true)->get();
 
+        // Les prochains cours ; à défaut, les derniers passés. Une carte vide
+        // « aucun cours à venir » occupait la moitié de l'écran hors période
+        // scolaire, alors que l'élève veut au moins revoir ses derniers cours.
+        $cours = fn (bool $futurs) => ActiviteIntervenant::with(['cours', 'intervenant', 'salle'])
+            ->where('id_classe', $eleve->id_classe)
+            ->where('date_debut', $futurs ? '>=' : '<', now())
+            ->orderBy('date_debut', $futurs ? 'asc' : 'desc')
+            ->limit(5)
+            ->get();
+
+        $prochainsCours = $cours(true);
+        $coursPasses = $prochainsCours->isEmpty();
+
+        if ($coursPasses) {
+            $prochainsCours = $cours(false)->sortBy('date_debut')->values();
+        }
+
         return view('eleve.dashboard', [
             'eleve' => $eleve,
             // Moyenne simple, comme sur l'écran « Mes notes » : la moyenne
             // pondérée officielle est celle du bulletin.
             'moyenne' => self::moyenneSimple($notesPubliees),
-            'prochainCours' => ActiviteIntervenant::with(['cours', 'intervenant', 'salle'])
-                ->where('id_classe', $eleve->id_classe)
-                ->where('date_debut', '>=', now())
-                ->orderBy('date_debut')
-                ->first(),
+            'prochainsCours' => $prochainsCours,
+            'coursPasses' => $coursPasses,
+            'nbBulletins' => SnBulletin::where('id_eleve', $eleve->id_eleve)->where('active', true)->count(),
             'coursSemaine' => ActiviteIntervenant::where('id_classe', $eleve->id_classe)
                 ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
                 ->count(),
