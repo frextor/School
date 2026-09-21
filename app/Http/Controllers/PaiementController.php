@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChequePaiement;
+use App\Models\Echeance;
 use App\Models\Eleve;
 use App\Models\NiveauxOptions;
 use App\Models\PaiementEleve;
@@ -35,14 +36,38 @@ use Illuminate\View\View;
  */
 class PaiementController extends Controller
 {
+    /**
+     * Règlements d'un élève. L'écran ne montrait que `amos_paiement_eleve`,
+     * l'ancien module, resté vide depuis que la facturation passe par
+     * l'échéancier : on tombait sur « Aucun règlement » alors que l'élève
+     * avait vingt-deux échéances. L'échéancier est donc la matière première
+     * de cet écran, l'ancien module n'apparaissant que s'il porte des lignes.
+     */
     public function index(Eleve $eleve): View
     {
+        $eleve->load(['contact', 'classe.etablissement']);
+
+        $echeances = Echeance::where('id_eleve', $eleve->id_eleve)
+            ->orderBy('date_echeance')
+            ->get()
+            ->groupBy('annee_scolaire')
+            ->sortKeysDesc();
+
         $paiements = PaiementEleve::with(['cheques', 'options', 'etablissement'])
             ->where('id_eleve', $eleve->id_eleve)
             ->orderByDesc('date')
             ->get();
 
-        return view('paiements.index', ['eleve' => $eleve, 'paiements' => $paiements]);
+        $toutes = $echeances->flatten();
+
+        return view('paiements.index', [
+            'eleve' => $eleve,
+            'echeancesParAnnee' => $echeances,
+            'paiements' => $paiements,
+            'total' => (float) $toutes->sum('montant'),
+            'regle' => (float) $toutes->sum('montant_regle'),
+            'enRetard' => $toutes->where('statut', Echeance::STATUT_RETARD)->count(),
+        ]);
     }
 
     public function create(Eleve $eleve): View
