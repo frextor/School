@@ -124,6 +124,11 @@ Route::middleware('auth:intervenant')->prefix('espace-intervenant')->name('espac
     Route::get('mon-planning', [TeacherSpaceController::class, 'myPlanning'])->name('planning');
     Route::get('mes-classes', [TeacherSpaceController::class, 'myClasses'])->name('classes');
     Route::get('mes-classes/{classe}/eleves', [TeacherSpaceController::class, 'classRoster'])->name('roster');
+
+    // Assiduite : l'enseignant part de ses cours du jour pour faire l'appel.
+    Route::get('appel', [TeacherSpaceController::class, 'appelDuJour'])->name('appel-jour');
+    Route::get('appel/{creneau}', [TeacherSpaceController::class, 'appel'])->name('appel');
+    Route::post('appel/{creneau}', [TeacherSpaceController::class, 'enregistrerAppel'])->name('appel.store');
 });
 
 // Authentification + espace élève (portage de User::login()/logout()).

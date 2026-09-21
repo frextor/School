@@ -741,7 +741,8 @@
             ? [
                 ['intervenant.dashboard', 'intervenant.dashboard', 'home', 'Accueil'],
                 ['espace-intervenant.planning', 'espace-intervenant.planning', 'cal', 'Mon emploi du temps'],
-                ['espace-intervenant.classes', 'espace-intervenant.*', 'users', 'Mes classes'],
+                ['espace-intervenant.appel-jour', 'espace-intervenant.appel*', 'check-simple', "Faire l'appel"],
+                ['espace-intervenant.classes', ['espace-intervenant.classes', 'espace-intervenant.roster'], 'users', 'Mes classes'],
                 ['recapitulatif.index', 'recapitulatif.*', 'clock', "Récapitulatif d'heures"],
             ]
             : ($entrepriseUser
@@ -784,7 +785,7 @@
             <nav class="portal-nav" aria-label="Navigation de l'espace">
                 <div class="portal-nav-inner">
                     @foreach ($portalLinks as [$route, $motif, $icone, $libelle])
-                        <a href="{{ route($route) }}" class="portal-link @if (request()->routeIs($motif)) is-active @endif">
+                        <a href="{{ route($route) }}" class="portal-link @if (request()->routeIs(...(array) $motif)) is-active @endif">
                             @include('partials.icon', ['n' => $icone, 's' => 15, 'w' => 2]){{ $libelle }}
                         </a>
                     @endforeach

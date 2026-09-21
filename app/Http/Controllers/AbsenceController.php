@@ -6,10 +6,10 @@ use App\Models\AbsenceEleve;
 use App\Models\Classe;
 use App\Models\Cours;
 use App\Models\Eleve;
+use App\Support\Appel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
@@ -121,53 +121,17 @@ class AbsenceController extends Controller
             'heure' => ['required', 'date_format:H:i'],
             'id_cours' => ['nullable', 'integer'],
             'statuts' => ['required', 'array'],
-            'statuts.*' => ['in:present,absence,retard'],
+            'statuts.*' => [Appel::STATUTS],
         ]);
 
-        $date = Carbon::parse($data['date']);
-        $semestre = AbsenceEleve::semestrePour($date);
-        $compte = ['absence' => 0, 'retard' => 0, 'efface' => 0];
-
-        DB::transaction(function () use ($data, $date, $semestre, &$compte) {
-            foreach ($data['statuts'] as $idEleve => $statut) {
-                $existante = AbsenceEleve::where('id_eleve', (int) $idEleve)
-                    ->where('date_absence', $date->format('Y-m-d'))
-                    ->where('heure_absence', $data['heure'].':00')
-                    ->first();
-
-                if ($statut === 'present') {
-                    if ($existante) {
-                        $existante->delete();
-                        $compte['efface']++;
-                    }
-
-                    continue;
-                }
-
-                // Une saisie existante conserve sa justification : l'appel ne
-                // doit pas effacer un justificatif déjà fourni par la famille.
-                $justifie = $existante?->justifie ?? false;
-
-                AbsenceEleve::updateOrCreate(
-                    [
-                        'id_eleve' => (int) $idEleve,
-                        'date_absence' => $date->format('Y-m-d'),
-                        'heure_absence' => $data['heure'].':00',
-                    ],
-                    AbsenceEleve::drapeaux($statut, $justifie) + [
-                        'id_cours' => $data['id_cours'] ?: 0,
-                        'id_unite_enseignement' => 0,
-                        'semestre' => $semestre,
-                        'valide' => 1,
-                        'annotation' => $existante->annotation ?? '',
-                        'justificatif' => $justifie,
-                        'modification_justificatif' => 0,
-                    ]
-                );
-
-                $compte[$statut]++;
-            }
-        });
+        // Écriture déléguée : l'espace enseignant fait le même appel depuis
+        // ses propres créneaux et doit produire des lignes identiques.
+        $compte = Appel::enregistrer(
+            $data['statuts'],
+            Carbon::parse($data['date']),
+            $data['heure'],
+            $data['id_cours'] ?? null
+        );
 
         return redirect()
             ->route('absences.appel', [
@@ -176,8 +140,7 @@ class AbsenceController extends Controller
                 'heure' => $data['heure'],
                 'id_cours' => $data['id_cours'],
             ])
-            ->with('status', "Appel enregistré : {$compte['absence']} absence(s), {$compte['retard']} retard(s)"
-                .($compte['efface'] ? ", {$compte['efface']} ligne(s) retirée(s)" : '').'.');
+            ->with('status', Appel::message($compte));
     }
 
     /** Justifie une absence (motif + justificatif optionnel), ou retire la justification. */
