@@ -232,10 +232,31 @@ class TeacherSpaceController extends Controller
     public function classRoster(Classe $classe): View
     {
         $eleves = Eleve::where('id_classe', $classe->id_classe)
-            ->with('contact')
+            ->with(['contact', 'tuteurs'])
             ->actifs()
-            ->get();
+            ->get()
+            ->sortBy(fn (Eleve $e) => mb_strtolower($e->contact?->nom.' '.$e->contact?->prenom))
+            ->values();
 
-        return view('espace-intervenant.roster', ['classe' => $classe, 'eleves' => $eleves]);
+        // Assiduité de l'année scolaire en cours : devant une classe, savoir
+        // qui accumule les absences vaut mieux qu'une liste de noms et d'emails.
+        $debutAnnee = Carbon::create(now()->month >= 9 ? now()->year : now()->year - 1, 9, 1);
+
+        $assiduite = AbsenceEleve::whereIn('id_eleve', $eleves->pluck('id_eleve'))
+            ->where('date_absence', '>=', $debutAnnee)
+            ->get()
+            ->groupBy('id_eleve')
+            ->map(fn ($lignes) => [
+                'absences' => $lignes->filter(fn ($a) => $a->nature === AbsenceEleve::NATURE_ABSENCE)->count(),
+                'retards' => $lignes->filter(fn ($a) => $a->nature === AbsenceEleve::NATURE_RETARD)->count(),
+                'non_justifiees' => $lignes->filter(fn ($a) => ! $a->justifie)->count(),
+            ]);
+
+        return view('espace-intervenant.roster', [
+            'classe' => $classe,
+            'eleves' => $eleves,
+            'assiduite' => $assiduite,
+            'depuis' => $debutAnnee,
+        ]);
     }
 }
