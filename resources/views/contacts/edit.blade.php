@@ -37,11 +37,36 @@
         <label for="telephone">Téléphone</label>
         <input type="text" name="telephone" id="telephone" value="{{ old('telephone', $contact->telephone) }}">
 
+        <label for="sexe">Sexe</label>
+        <select name="sexe" id="sexe">
+            <option value="">—</option>
+            <option value="m" @selected(old('sexe', $contact->sexe) === 'm')>Masculin</option>
+            <option value="f" @selected(old('sexe', $contact->sexe) === 'f')>Féminin</option>
+        </select>
+
+        <label for="date_naissance">Date de naissance</label>
+        <input type="date" name="date_naissance" id="date_naissance" value="{{ old('date_naissance', $contact->date_naissance) }}">
+
+        <label for="lieu_naissance">Lieu de naissance</label>
+        <input type="text" name="lieu_naissance" id="lieu_naissance" maxlength="25" value="{{ old('lieu_naissance', $contact->lieu_naissance) }}">
+
+        <label for="pays_naissance">Pays de naissance</label>
+        <input type="text" name="pays_naissance" id="pays_naissance" maxlength="20" value="{{ old('pays_naissance', $contact->pays_naissance) }}">
+
+        <label for="nationalite">Nationalité</label>
+        <input type="text" name="nationalite" id="nationalite" maxlength="20" value="{{ old('nationalite', $contact->nationalite) }}">
+
+        <label for="adresse">Adresse</label>
+        <input type="text" name="adresse" id="adresse" value="{{ old('adresse', $contact->adresse) }}">
+
         <label for="code_postal">Code postal</label>
         <input type="text" name="code_postal" id="code_postal" value="{{ old('code_postal', $contact->code_postal) }}">
 
         <label for="ville">Ville</label>
         <input type="text" name="ville" id="ville" value="{{ old('ville', $contact->ville) }}">
+
+        <label for="pays">Pays</label>
+        <input type="text" name="pays" id="pays" maxlength="30" value="{{ old('pays', $contact->pays) }}">
 
         <label for="id_formation">Formation</label>
         <select name="id_formation" id="id_formation">

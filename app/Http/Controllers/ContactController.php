@@ -180,9 +180,17 @@ class ContactController extends Controller
             'prenom' => ['required', 'string', 'max:30'],
             'telephone' => ['nullable', 'string', 'max:20'],
             'email' => ['required', 'email', 'max:60'],
+            'adresse' => ['nullable', 'string', 'max:100'],
             'code_postal' => ['nullable', 'string', 'max:10'],
             'ville' => ['nullable', 'string', 'max:30'],
             'pays' => ['nullable', 'string', 'max:30'],
+            // État civil : saisi par l'école à l'inscription (dossier Massar),
+            // il n'était ni modifiable ni affiché nulle part.
+            'sexe' => ['nullable', 'in:m,f'],
+            'date_naissance' => ['nullable', 'date'],
+            'lieu_naissance' => ['nullable', 'string', 'max:25'],
+            'pays_naissance' => ['nullable', 'string', 'max:20'],
+            'nationalite' => ['nullable', 'string', 'max:20'],
             'id_formation' => ['nullable', 'integer', 'exists:amos_formations,id_formation'],
             'id_reunion_information' => ['nullable', 'integer', 'exists:amos_reunions_information,id_reunion_information'],
             'newsletter' => ['boolean'],
@@ -205,9 +213,14 @@ class ContactController extends Controller
                 'prenom' => ucfirst($data['prenom']),
                 'telephone' => $data['telephone'] ?? '',
                 'email' => strtolower($data['email']),
+                'adresse' => $data['adresse'] ?? '',
                 'code_postal' => $data['code_postal'] ?? '',
                 'ville' => $data['ville'] ?? '',
                 'pays' => $data['pays'] ?? '',
+                'date_naissance' => $data['date_naissance'] ?? '',
+                'lieu_naissance' => $data['lieu_naissance'] ?? '',
+                'pays_naissance' => $data['pays_naissance'] ?? '',
+                'nationalite' => $data['nationalite'] ?? '',
                 'id_formation' => $data['id_formation'] ?? 0,
                 'newsletter' => $request->boolean('newsletter'),
                 'offres_partenaires' => $request->boolean('offres_partenaires'),
@@ -219,6 +232,12 @@ class ContactController extends Controller
                 'annotation' => $data['annotation'] ?? '',
                 'annee_rentree' => $data['annee_rentree'] ?? 0,
             ]);
+
+            // `sexe` est un enum('f','m') NOT NULL : MySQL refuse la chaîne
+            // vide, on ne touche donc à la colonne que si le champ est rempli.
+            if (filled($data['sexe'] ?? null)) {
+                $contact->update(['sexe' => $data['sexe']]);
+            }
 
             $contact->ecoles()->delete();
             foreach ($data['etablissements'] ?? [] as $ville) {

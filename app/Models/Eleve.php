@@ -23,7 +23,7 @@ class Eleve extends Model
     protected $fillable = [
         'id_contact', 'id_eleve_parent', 'id_niveau', 'id_niveau_future', 'id_classe',
         'profil', 'valide', 'visible', 'date_inscription', 'date_depot',
-        'numero_social', 'montant_formation', 'paiement_formation',
+        'numero_social', 'numero_massar', 'montant_formation', 'paiement_formation',
         'paiement_valide', 'commentaire', 'photo', 'visible_attente_epreuve',
         'lang_maternelle', 'situation_famille', 'avoir_enfants', 'nbr_enfants',
         'situation_actuelle', 'bac_obtenu_encours', 'situation_actuelle_autre',

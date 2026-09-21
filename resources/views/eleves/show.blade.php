@@ -66,16 +66,37 @@
         'Frais de scolarité' => $montant > 0 ? $dh($montant) : '—',
     ];
 
+    // État civil : les champs facultatifs n'apparaissent que remplis, pour
+    // ne pas aligner une colonne de tirets sur une école qui ne les saisit pas.
+    $etatCivil = collect([
+        'Civilité' => $contact?->civilite,
+        'Sexe' => match (mb_strtolower((string) $contact?->sexe)) {
+            'm' => 'Masculin',
+            'f' => 'Féminin',
+            default => null,
+        },
+        'Date de naissance' => $contact?->date_naissance
+            ? \Illuminate\Support\Carbon::parse($contact->date_naissance)->format('d/m/Y')
+                .' ('.\Illuminate\Support\Carbon::parse($contact->date_naissance)->age.' ans)'
+            : null,
+        'Lieu de naissance' => $contact?->lieu_naissance,
+        'Pays de naissance' => $contact?->pays_naissance,
+        'Nationalité' => $contact?->nationalite,
+        'Langue maternelle' => $eleve->lang_maternelle,
+        'Numéro Massar' => $eleve->numero_massar,
+        'Numéro social' => $eleve->numero_social,
+    ])->filter(fn ($v) => filled($v));
+
     $coordonnees = [
         'Email' => $contact?->email ?: '—',
         'Téléphone' => $contact?->telephone
             ?: ($eleve->tuteurs->sortByDesc(fn ($t) => (int) ($t->pivot->responsable_legal ?? 0))->first()?->telephone
                 ? $eleve->tuteurs->sortByDesc(fn ($t) => (int) ($t->pivot->responsable_legal ?? 0))->first()->telephone.' (famille)'
                 : '—'),
-        'Date de naissance' => $contact?->date_naissance ? \Illuminate\Support\Carbon::parse($contact->date_naissance)->format('d/m/Y') : '—',
         'Adresse' => $contact?->adresse ?: '—',
         'Ville' => $contact?->ville ?: '—',
         'Code postal' => $contact?->code_postal ?: '—',
+        'Pays' => $contact?->pays ?: '—',
     ];
 @endphp
 
@@ -178,6 +199,25 @@
                     @endforeach
                 </div>
             </section>
+
+            @if ($etatCivil->isNotEmpty())
+                <section class="panel">
+                    <div class="panel-head">
+                        <h2>État civil</h2>
+                        @if ($contact && Route::has('contacts.edit'))
+                            <a href="{{ route('contacts.edit', $contact) }}">Modifier</a>
+                        @endif
+                    </div>
+                    <div class="field-grid">
+                        @foreach ($etatCivil as $label => $valeur)
+                            <div class="field">
+                                <div class="field-label">{{ $label }}</div>
+                                <div class="field-value is-regular">{{ $valeur }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
 
             <section class="panel">
                 <div class="panel-head">

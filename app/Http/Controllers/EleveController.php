@@ -304,6 +304,8 @@ class EleveController extends Controller
 
     public function edit(Eleve $eleve): View
     {
+        $eleve->load(['contact', 'classe']);
+
         return view('eleves.edit', [
             'eleve' => $eleve,
             'niveaux' => Niveau::orderBy('nom_niveau')->get(),
@@ -311,23 +313,92 @@ class EleveController extends Controller
         ]);
     }
 
+    /**
+     * Met à jour l'élève **et** sa fiche contact. L'état civil (nom, date et
+     * lieu de naissance, nationalité, coordonnées) vit sur `amos_contacts` :
+     * il fallait jusqu'ici passer par un second écran pour le corriger, alors
+     * que c'est la même fiche du point de vue de l'école.
+     */
     public function update(Request $request, Eleve $eleve): RedirectResponse
     {
         $data = $request->validate([
-            'id_niveau' => ['required', 'integer'],
+            // Identité (fiche contact) — longueurs alignées sur le schéma hérité.
+            'civilite' => ['nullable', 'in:M,Mme,Melle'],
+            'nom' => ['required', 'string', 'max:30'],
+            'prenom' => ['required', 'string', 'max:30'],
+            'sexe' => ['nullable', 'in:m,f'],
+            'date_naissance' => ['nullable', 'date'],
+            'lieu_naissance' => ['nullable', 'string', 'max:25'],
+            'pays_naissance' => ['nullable', 'string', 'max:20'],
+            'nationalite' => ['nullable', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:60'],
+            'telephone' => ['nullable', 'string', 'max:20'],
+            'adresse' => ['nullable', 'string', 'max:100'],
+            'code_postal' => ['nullable', 'string', 'max:10'],
+            'ville' => ['nullable', 'string', 'max:30'],
+            'pays' => ['nullable', 'string', 'max:30'],
+            // Scolarité (fiche élève).
+            'id_niveau' => ['required', 'integer', 'exists:amos_niveaux,id_niveau'],
             'id_classe' => ['nullable', 'integer'],
             'profil' => ['required', 'in:eleve,alumni,reinscrit,abandon'],
+            'date_inscription' => ['nullable', 'date'],
+            'numero_massar' => ['nullable', 'string', 'max:20'],
+            'numero_social' => ['nullable', 'string', 'max:20'],
+            'lang_maternelle' => ['nullable', 'string', 'max:20'],
             'valide' => ['boolean'],
             'visible' => ['boolean'],
             'montant_formation' => ['nullable', 'string', 'max:20'],
             'commentaire' => ['nullable', 'string'],
         ]);
 
-        $eleve->update($data);
+        DB::transaction(function () use ($data, $eleve, $request) {
+            if ($contact = $eleve->contact) {
+                $contact->update([
+                    'civilite' => $data['civilite'] ?: $contact->civilite,
+                    'nom' => $data['nom'],
+                    'prenom' => $data['prenom'],
+                    'date_naissance' => $data['date_naissance'] ?? '',
+                    'lieu_naissance' => $data['lieu_naissance'] ?? '',
+                    'pays_naissance' => $data['pays_naissance'] ?? '',
+                    'nationalite' => $data['nationalite'] ?? '',
+                    'email' => $data['email'] ? strtolower($data['email']) : $contact->email,
+                    'telephone' => $data['telephone'] ?? '',
+                    'adresse' => $data['adresse'] ?? '',
+                    'code_postal' => $data['code_postal'] ?? '',
+                    'ville' => $data['ville'] ?? '',
+                    'pays' => $data['pays'] ?? '',
+                ]);
+
+                // `sexe` est un enum('f','m') NOT NULL : MySQL refuse la chaîne
+                // vide, la colonne n'est donc touchée que si le champ est rempli.
+                if (filled($data['sexe'] ?? null)) {
+                    $contact->update(['sexe' => $data['sexe']]);
+                }
+            }
+
+            $eleve->update([
+                'id_niveau' => $data['id_niveau'],
+                'id_classe' => $data['id_classe'] ?? null,
+                'profil' => $data['profil'],
+                'numero_massar' => $data['numero_massar'] ?? null,
+                'numero_social' => $data['numero_social'] ?? '',
+                'lang_maternelle' => $data['lang_maternelle'] ?? '',
+                'valide' => $request->boolean('valide'),
+                'visible' => $request->boolean('visible'),
+                'montant_formation' => $data['montant_formation'] ?? '',
+                'commentaire' => $data['commentaire'] ?? '',
+            ]);
+
+            // `date_inscription` est un datetime NOT NULL sans défaut : une
+            // valeur vide y ferait échouer la requête.
+            if (filled($data['date_inscription'] ?? null)) {
+                $eleve->update(['date_inscription' => $data['date_inscription']]);
+            }
+        });
 
         return redirect()
             ->route('eleves.show', $eleve)
-            ->with('status', 'Élève mis à jour.');
+            ->with('status', 'Fiche élève mise à jour.');
     }
 
     public function destroy(Eleve $eleve): RedirectResponse
