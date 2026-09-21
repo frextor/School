@@ -8,13 +8,6 @@
     $nom = $contact?->nom_complet ?? 'Élève #'.$eleve->id_eleve;
     $initiales = mb_strtoupper(mb_substr($contact?->prenom ?? '?', 0, 1).mb_substr($contact?->nom ?? '', 0, 1));
 
-    $statutPaiement = $eleve->paiement_formation ?: 'Non payé';
-    $statutBas = mb_strtolower($statutPaiement);
-    $paiementTint = match (true) {
-        str_contains($statutBas, 'payé') && ! str_contains($statutBas, 'non') => ['#e7f6f2', '#0f766e'],
-        str_contains($statutBas, 'opco') => ['#eef0fe', '#3730a3'],
-        default => ['#fdecef', '#be123c'],
-    };
 
     $profilTint = match ($eleve->profil) {
         'eleve' => ['#eef0fe', '#3730a3'],
@@ -27,32 +20,62 @@
 
     // Onglets secondaires : affichés seulement si le contrôleur fournit les données.
     $paiements = $paiements ?? null;
-    $notesParUe = $notesParUe ?? null;
+    $notesParMatiere = $notesParMatiere ?? null;
+    $assiduite = $assiduite ?? collect();
     $documents = $documents ?? null;
 
-    $montant = (float) ($eleve->montant_formation ?: 0);
-    $encaisse = $paiements ? (float) collect($paiements)->where('encaisse', true)->sum('montant') : null;
+    // Le montant fait foi côté échéancier : `montant_formation` est une
+    // colonne héritée, vide depuis que la facturation passe par les
+    // échéances. On ne retombe dessus que faute d'échéancier.
+    $lignes = $paiements ? collect($paiements) : collect();
+    $montant = $lignes->isNotEmpty()
+        ? (float) $lignes->sum('montant')
+        : (float) ($eleve->montant_formation ?: 0);
+    $encaisse = $lignes->isNotEmpty() ? (float) $lignes->where('encaisse', true)->sum('montant') : null;
+    $reste = $encaisse === null ? null : max(0, $montant - $encaisse);
     $progression = $montant > 0 && $encaisse !== null ? min(100, round($encaisse / $montant * 100)) : null;
-    $euro = fn ($v) => number_format((float) $v, 0, ',', ' ').' €';
+    $enRetard = $lignes->filter(fn ($e) => ! $e->encaisse && $e->date_echeance && $e->date_echeance->isPast())->count();
+    $dh = fn ($v) => number_format((float) $v, 0, ',', ' ').' DH';
+
+    // Statut de règlement déduit de l'échéancier plutôt que de la colonne
+    // `paiement_formation`, qui n'est plus tenue à jour.
+    [$statutPaiement, $paiementTint] = match (true) {
+        $lignes->isEmpty() => ['Aucun échéancier', ['#eef1f6', '#475569']],
+        $reste !== null && $reste <= 0 => ['Soldé', ['#e7f6f2', '#0f766e']],
+        $enRetard > 0 => [$enRetard.' échéance(s) en retard', ['#fdecef', '#be123c']],
+        default => ['Règlement en cours', ['#fdf3e3', '#92400e']],
+    };
+
+    $profilLibelle = match ($eleve->profil) {
+        'eleve' => 'Élève',
+        'candidat' => 'Candidat',
+        'alumni' => 'Ancien élève',
+        'reinscrit' => 'Réinscrit',
+        'abandon' => 'Abandon',
+        default => ucfirst($eleve->profil ?: '—'),
+    };
 
     $scolarite = [
-        'Profil' => ucfirst($eleve->profil ?? '—'),
+        'Profil' => $profilLibelle,
         'Niveau' => $eleve->niveau?->nom_niveau ?? '—',
         'Niveau futur' => $eleve->niveauFuture?->nom_niveau ?? '—',
         'Classe' => $eleve->classe?->classe ?? '—',
         'Établissement' => $eleve->etablissement?->nom_etablissement ?? '—',
         'Année de formation' => $eleve->annee_formation ?? '—',
         "Date d'inscription" => $eleve->date_inscription?->format('d/m/Y') ?? '—',
-        'Montant formation' => $montant > 0 ? $euro($montant) : '—',
+        'Frais de scolarité' => $montant > 0 ? $dh($montant) : '—',
     ];
 
     $coordonnees = [
-        'Email' => $contact?->email ?? '—',
-        'Téléphone' => $contact?->telephone ?? '—',
+        'Email' => $contact?->email ?: '—',
+        'Téléphone' => $contact?->telephone
+            ?: ($eleve->tuteurs->sortByDesc(fn ($t) => (int) ($t->pivot->responsable_legal ?? 0))->first()?->telephone
+                ? $eleve->tuteurs->sortByDesc(fn ($t) => (int) ($t->pivot->responsable_legal ?? 0))->first()->telephone.' (famille)'
+                : '—'),
         'Date de naissance' => $contact?->date_naissance ? \Illuminate\Support\Carbon::parse($contact->date_naissance)->format('d/m/Y') : '—',
-        'Adresse' => $contact?->adresse ?? '—',
-        'Ville' => $contact?->ville ?? '—',
-        'Code postal' => $contact?->code_postal ?? '—',
+        'Adresse' => $contact?->adresse ?: '—',
+        'Ville' => $contact?->ville ?: '—',
+        'Code postal' => $contact?->code_postal ?: '—',
     ];
 @endphp
 
@@ -72,7 +95,7 @@
         <div class="id-main">
             <div class="id-title">
                 <h1>{{ $nom }}</h1>
-                <span class="pill" style="background:{{ $profilTint[0] }};color:{{ $profilTint[1] }}">{{ ucfirst($eleve->profil ?? '—') }}</span>
+                <span class="pill" style="background:{{ $profilTint[0] }};color:{{ $profilTint[1] }}">{{ $profilLibelle }}</span>
                 <span class="pill dot-pill" style="background:{{ $eleve->visible ? '#e7f6f2' : '#fdecef' }};color:{{ $eleve->visible ? '#0f766e' : '#be123c' }}">
                     <span class="dot"></span>{{ $eleve->visible ? 'Visible' : 'Masqué' }}
                 </span>
@@ -120,9 +143,14 @@
                 Règlements<span class="tab-badge">{{ count($paiements) }}</span>
             </button>
         @endif
-        @if ($notesParUe !== null)
+        @if ($notesParMatiere !== null)
             <button type="button" class="tab" data-tab="notes" role="tab">
-                Notes<span class="tab-badge">{{ collect($notesParUe)->sum(fn ($n) => count($n)) }}</span>
+                Notes<span class="tab-badge">{{ collect($notesParMatiere)->sum(fn ($n) => count($n)) }}</span>
+            </button>
+        @endif
+        @if ($assiduite->isNotEmpty())
+            <button type="button" class="tab" data-tab="assiduite" role="tab">
+                Assiduité<span class="tab-badge">{{ $assiduite->count() }}</span>
             </button>
         @endif
         @if ($documents !== null)
@@ -295,7 +323,7 @@
                 <section class="panel">
                     <div class="panel-head">
                         <h2>Échéancier</h2>
-                        <span class="panel-sub">{{ count($paiements) }} échéances @if ($montant > 0) · {{ $euro($montant) }} au total @endif</span>
+                        <span class="panel-sub">{{ count($paiements) }} échéances @if ($montant > 0) · {{ $dh($montant) }} au total @endif</span>
                         @if (Route::has('paiements.index'))
                             <a href="{{ route('paiements.index', $eleve) }}">Tous les règlements</a>
                         @endif
@@ -315,7 +343,7 @@
                                     <tr>
                                         <td class="strong">{{ $paiement->date_echeance?->format('d/m/Y') ?? '—' }}</td>
                                         <td class="muted">{{ $paiement->moyen ?? '—' }}</td>
-                                        <td class="num strong">{{ $euro($paiement->montant) }}</td>
+                                        <td class="num strong">{{ $dh($paiement->montant) }}</td>
                                         <td>
                                             <span class="dot-status" style="color:{{ $paiement->encaisse ? '#0f766e' : '#b45309' }}">
                                                 <span class="dot"></span>{{ $paiement->encaisse ? 'Encaissé' : 'À échoir' }}
@@ -331,7 +359,7 @@
         @endif
 
         {{-- Notes --}}
-        @if ($notesParUe !== null)
+        @if ($notesParMatiere !== null)
             <div data-panel="notes" hidden>
                 <section class="panel">
                     <div class="panel-head">
@@ -347,18 +375,23 @@
                         <table class="data-table" style="min-width:400px">
                             <thead>
                                 <tr>
-                                    <th>Unité d'enseignement</th>
                                     <th>Matière</th>
+                                    <th>Évaluation</th>
+                                    <th>Date</th>
                                     <th class="num">Note</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($notesParUe as $ue => $lignes)
+                                @foreach ($notesParMatiere as $matiere => $lignes)
                                     @foreach ($lignes as $ligne)
+                                        @php $valeur = is_numeric($ligne->note) ? (float) $ligne->note : null; @endphp
                                         <tr>
-                                            <td class="muted">{{ $ue }}</td>
-                                            <td class="strong">{{ $ligne->evaluation?->matiere?->nom_cours ?? '—' }}</td>
-                                            <td class="num note">{{ $ligne->note !== null ? number_format((float) $ligne->note, 2, ',', ' ') : '—' }}</td>
+                                            <td class="strong">{{ $loop->first ? $matiere : '' }}</td>
+                                            <td class="muted">{{ $ligne->evaluation?->typeEvaluation?->type?->type ?: 'Évaluation' }}</td>
+                                            <td class="muted">{{ $ligne->date_saisie?->format('d/m/Y') ?: '—' }}</td>
+                                            <td class="num note" @if ($valeur !== null && $valeur < 10) style="color:var(--danger)" @endif>
+                                                {{ $valeur !== null ? number_format($valeur, 2, ',', ' ') : '—' }}
+                                            </td>
                                         </tr>
                                     @endforeach
                                 @endforeach
@@ -370,6 +403,53 @@
         @endif
 
         {{-- Documents --}}
+        @if ($assiduite->isNotEmpty())
+            <div data-panel="assiduite" hidden>
+                <section class="panel">
+                    <div class="panel-head">
+                        <h2>Assiduité</h2>
+                        <span class="panel-sub">
+                            {{ $assiduite->filter(fn ($a) => $a->nature === \App\Models\AbsenceEleve::NATURE_ABSENCE)->count() }} absence(s)
+                            · {{ $assiduite->filter(fn ($a) => $a->nature === \App\Models\AbsenceEleve::NATURE_RETARD)->count() }} retard(s)
+                            depuis le {{ $depuis->format('d/m/Y') }}
+                        </span>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="data-table" style="min-width:520px">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Heure</th>
+                                    <th>Nature</th>
+                                    <th>Cours</th>
+                                    <th>Justification</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($assiduite as $ligne)
+                                    @php $estRetard = $ligne->nature === \App\Models\AbsenceEleve::NATURE_RETARD; @endphp
+                                    <tr>
+                                        <td class="strong">{{ $ligne->date_absence?->format('d/m/Y') ?: '—' }}</td>
+                                        <td class="muted">{{ substr((string) $ligne->heure_absence, 0, 5) ?: '—' }}</td>
+                                        <td>
+                                            <span class="pill" style="background:{{ $estRetard ? '#fdf3e3' : '#fdecef' }};color:{{ $estRetard ? '#92400e' : '#be123c' }}">
+                                                {{ $ligne->nature_libelle }}
+                                            </span>
+                                        </td>
+                                        <td class="muted">{{ $ligne->cours?->nom_cours ?: '—' }}</td>
+                                        <td class="muted">
+                                            {{ $ligne->justifie ? 'Justifiée' : 'Non justifiée' }}
+                                            @if ($ligne->annotation) · {{ $ligne->annotation }} @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        @endif
+
         @if ($documents !== null)
             <div data-panel="documents" hidden>
                 <section class="panel">
@@ -396,14 +476,14 @@
         <section class="panel panel-pad">
             <div class="field-label">Règlement de la formation</div>
             <div class="money">
-                <span class="money-value">{{ $montant > 0 ? $euro($montant) : '—' }}</span>
-                <span class="money-hint">montant total</span>
+                <span class="money-value">{{ $montant > 0 ? $dh($montant) : '—' }}</span>
+                <span class="money-hint">{{ $lignes->count() ? $lignes->count().' échéances' : 'montant total' }}</span>
             </div>
             @if ($progression !== null)
                 <div class="bar"><span style="width:{{ $progression }}%"></span></div>
                 <div class="bar-legend">
-                    <span class="is-ok">{{ $euro($encaisse) }} encaissés</span>
-                    <span>{{ $euro(max(0, $montant - $encaisse)) }} restants</span>
+                    <span class="is-ok">{{ $dh($encaisse) }} encaissés</span>
+                    <span>{{ $dh($reste) }} restants</span>
                 </div>
             @endif
             <div class="money-foot">
@@ -511,6 +591,10 @@
     .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; align-items: start; }
     .detail-main, .detail-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .detail-main > [data-panel] { display: flex; flex-direction: column; gap: 14px; }
+    /* `display` en règle d'auteur l'emporte sur l'attribut [hidden] : sans
+       cette ligne, tous les panneaux s'affichent en même temps et les
+       onglets semblent inertes. */
+    .detail-main > [data-panel][hidden] { display: none; }
 
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
     .panel-pad { padding: 16px; }
@@ -522,7 +606,7 @@
     .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; background: var(--border-soft); }
     .field { background: var(--surface); padding: 12px 16px; }
     .field-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-    .field-value { font-size: 13.5px; font-weight: 600; margin-top: 3px; }
+    .field-value { font-size: 13.5px; font-weight: 600; margin-top: 3px; min-width: 0; overflow-wrap: anywhere; }
     .field-value.is-regular { font-weight: 500; }
 
     .table-scroll { overflow-x: auto; }

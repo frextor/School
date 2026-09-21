@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AbsenceEleve;
 use App\Models\Classe;
 use App\Models\Contact;
 use App\Models\Eleve;
 use App\Models\Etablissement;
 use App\Models\Niveau;
+use App\Models\Note;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -102,10 +105,36 @@ class EleveController extends Controller
             ->annee(\App\Models\Echeance::anneeScolaireCourante())
             ->get();
 
+        // Onglet Notes : regroupées par **matière** (l'unité d'enseignement est
+        // un découpage du supérieur, vide en K-12).
+        $notes = Note::with(['evaluation.matiere', 'evaluation.typeEvaluation.type'])
+            ->where('id_eleve', $eleve->id_eleve)
+            ->orderByDesc('date_saisie')
+            ->get();
+
+        $notesParMatiere = $notes
+            ->groupBy(fn ($n) => $n->evaluation?->matiere?->nom_cours ?? 'Autre')
+            ->sortKeys();
+
+        $chiffrees = $notes->filter(fn ($n) => is_numeric($n->note))->map(fn ($n) => (float) $n->note);
+
+        // Onglet Assiduité : absences et retards de l'année scolaire en cours.
+        $debutAnnee = Carbon::create(now()->month >= 9 ? now()->year : now()->year - 1, 9, 1);
+
+        $assiduite = AbsenceEleve::with('cours')
+            ->where('id_eleve', $eleve->id_eleve)
+            ->where('date_absence', '>=', $debutAnnee)
+            ->orderByDesc('date_absence')
+            ->get();
+
         return view('eleves.show', [
             'eleve' => $eleve,
             // `null` masque l'onglet : on ne l'affiche que si un échéancier existe.
             'paiements' => $echeances->isNotEmpty() ? $echeances : null,
+            'notesParMatiere' => $notesParMatiere->isNotEmpty() ? $notesParMatiere : null,
+            'moyenneGenerale' => $chiffrees->isEmpty() ? null : round($chiffrees->avg(), 2),
+            'assiduite' => $assiduite,
+            'depuis' => $debutAnnee,
         ]);
     }
 
