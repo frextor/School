@@ -33,17 +33,49 @@ class TeacherSpaceController extends Controller
 
         $creneaux = ActiviteIntervenant::where('id_intervenant', $intervenant->id_intervenant);
 
+        // Les prochaines séances ; à défaut les dernières, pour que la carte
+        // ne soit pas vide hors période scolaire.
+        $seances = fn (bool $futurs) => (clone $creneaux)->with(['cours', 'classe', 'salle'])
+            ->where('date_debut', $futurs ? '>=' : '<', now())
+            ->orderBy('date_debut', $futurs ? 'asc' : 'desc')
+            ->limit(5)
+            ->get();
+
+        $prochainsCours = $seances(true);
+        $coursPasses = $prochainsCours->isEmpty();
+
+        if ($coursPasses) {
+            $prochainsCours = $seances(false)->sortBy('date_debut')->values();
+        }
+
         return view('intervenant.dashboard', [
             'intervenant' => $intervenant,
-            'prochainCours' => (clone $creneaux)->with(['cours', 'classe', 'salle'])
-                ->where('date_debut', '>=', now())
-                ->orderBy('date_debut')
-                ->first(),
+            'prochainsCours' => $prochainsCours,
+            'coursPasses' => $coursPasses,
             'coursSemaine' => (clone $creneaux)
                 ->whereBetween('date_debut', [$debutSemaine, $debutSemaine->copy()->addDays(6)->endOfDay()])
                 ->count(),
-            'nbClasses' => (clone $creneaux)->where('id_classe', '!=', '')->distinct()->count('id_classe'),
+            'classes' => $this->classesSuivies($intervenant->id_intervenant),
         ]);
+    }
+
+    /**
+     * Classes de l'enseignant, déduites de ses créneaux planifiés, avec leur
+     * effectif — le nombre d'élèves est la première chose qu'on veut savoir.
+     */
+    private function classesSuivies(int $idIntervenant)
+    {
+        $ids = ActiviteIntervenant::where('id_intervenant', $idIntervenant)
+            ->whereNotNull('id_classe')
+            ->where('id_classe', '!=', '')
+            ->distinct()
+            ->pluck('id_classe');
+
+        return Classe::whereIn('id_classe', $ids)
+            ->with('niveau')
+            ->withCount('eleves')
+            ->orderBy('classe')
+            ->get();
     }
 
     /** Emploi du temps de la semaine, navigable (`?semaine=AAAA-MM-JJ`). */
@@ -79,15 +111,9 @@ class TeacherSpaceController extends Controller
     {
         $intervenant = Auth::guard('intervenant')->user()->intervenant;
 
-        $idsClasses = ActiviteIntervenant::where('id_intervenant', $intervenant->id_intervenant)
-            ->whereNotNull('id_classe')
-            ->where('id_classe', '!=', '')
-            ->distinct()
-            ->pluck('id_classe');
-
-        $classes = Classe::whereIn('id_classe', $idsClasses)->with('niveau')->get();
-
-        return view('espace-intervenant.classes', ['classes' => $classes]);
+        return view('espace-intervenant.classes', [
+            'classes' => $this->classesSuivies($intervenant->id_intervenant),
+        ]);
     }
 
     /** Portage simplifié de `get_eleves_classe()` — trombinoscope/liste des élèves d'une classe. */

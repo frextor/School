@@ -3,61 +3,103 @@
 @section('title', 'Mon espace')
 
 @section('content')
-<div class="page-head">
-    <div>
-        <h1>Bonjour {{ $intervenant?->prenom ?: '' }}</h1>
-        <p class="page-sub">Vos cours de la semaine, vos classes et votre récapitulatif d'heures.</p>
+@php
+    $initiales = mb_strtoupper(mb_substr($intervenant?->prenom ?: 'E', 0, 1).mb_substr($intervenant?->nom ?: '', 0, 1));
+    $effectif = $classes->sum('eleves_count');
+@endphp
+
+<section class="he">
+    <div class="he-id">
+        <span class="he-avatar">{{ $initiales }}</span>
+        <span class="he-txt">
+            <span class="he-hello">Bonjour {{ $intervenant?->prenom }}</span>
+            <span class="he-sub">{{ $classes->count() }} classe{{ $classes->count() > 1 ? 's' : '' }} · {{ $effectif }} élève{{ $effectif > 1 ? 's' : '' }}</span>
+        </span>
     </div>
-</div>
+
+    <div class="he-stats">
+        <div class="he-stat">
+            <strong>{{ $coursSemaine }}</strong>
+            <span>cours cette semaine</span>
+        </div>
+        <div class="he-stat">
+            <strong>{{ $classes->count() }}</strong>
+            <span>classe{{ $classes->count() > 1 ? 's' : '' }}</span>
+        </div>
+        <div class="he-stat">
+            <strong>{{ $effectif }}</strong>
+            <span>élèves suivis</span>
+        </div>
+    </div>
+</section>
 
 <div class="ho-grid">
-    <section class="ho-card ho-next">
-        <span class="ho-label">Prochain cours</span>
-        @if ($prochainCours)
-            <h2>{{ $prochainCours->cours?->nom_cours ?: 'Cours' }}</h2>
-            <p class="ho-quand">{{ ucfirst($prochainCours->date_debut->translatedFormat('l j F')) }} · {{ $prochainCours->date_debut->format('H:i') }} – {{ $prochainCours->date_fin->format('H:i') }}</p>
-            <div class="ho-meta">
-                @if ($prochainCours->classe?->classe)
-                    <span>@include('partials.icon', ['n' => 'users', 's' => 14, 'c' => '#585e72', 'w' => 2]){{ $prochainCours->classe->classe }}</span>
-                @endif
-                @if ($prochainCours->salle?->nom_salle)
-                    <span>@include('partials.icon', ['n' => 'door', 's' => 14, 'c' => '#585e72', 'w' => 2]){{ $prochainCours->salle->nom_salle }}</span>
-                @endif
-            </div>
-        @else
-            <h2 class="ho-rien">Aucun cours à venir</h2>
-            <p class="ho-quand">Rien n'est planifié pour l'instant.</p>
-        @endif
-        <a href="{{ route('espace-intervenant.planning') }}" class="ho-lien">
-            Voir mon emploi du temps @include('partials.icon', ['n' => 'arrow-right', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
-        </a>
-    </section>
-
-    <section class="ho-card ho-chiffre">
-        <span class="ho-label">Cette semaine</span>
-        <strong>{{ $coursSemaine }}</strong>
-        <span class="ho-unite">cours planifiés</span>
-    </section>
-
-    <section class="ho-card ho-chiffre">
-        <span class="ho-label">Mes classes</span>
-        <strong>{{ $nbClasses }}</strong>
-        <span class="ho-unite">classes suivies</span>
-        <a href="{{ route('espace-intervenant.classes') }}" class="ho-lien">
-            Voir mes classes @include('partials.icon', ['n' => 'arrow-right', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
-        </a>
-    </section>
-
-    @if (Route::has('recapitulatif.index'))
-        <section class="ho-card">
-            <span class="ho-label">Heures effectuées</span>
-            <h2>Récapitulatif</h2>
-            <p class="ho-quand">Déclarez et consultez vos heures.</p>
-            <a href="{{ route('recapitulatif.index') }}" class="ho-lien">
-                Ouvrir le récapitulatif @include('partials.icon', ['n' => 'arrow-right', 's' => 14, 'c' => 'var(--brand)', 'w' => 2])
+    <section class="ho-card ho-large">
+        <div class="ho-tete">
+            <span class="ho-label">{{ $coursPasses ? 'Mes derniers cours' : 'Mes prochains cours' }}</span>
+            <a href="{{ route('espace-intervenant.planning') }}" class="ho-tete-lien">
+                Emploi du temps @include('partials.icon', ['n' => 'arrow-right', 's' => 13, 'c' => 'var(--brand)', 'w' => 2])
             </a>
-        </section>
-    @endif
-</div>
+        </div>
 
+        @forelse ($prochainsCours as $seance)
+            <div class="ho-cours">
+                <span class="ho-cours-h">
+                    <span class="ho-cours-jour">{{ ucfirst($seance->date_debut->translatedFormat('D j')) }}</span>
+                    <span class="ho-cours-heure">{{ $seance->date_debut->format('H:i') }}</span>
+                </span>
+                <span class="ho-cours-txt">
+                    <span class="ho-cours-nom">{{ $seance->cours?->nom_cours ?: 'Cours' }}</span>
+                    <span class="ho-cours-meta">
+                        {{ collect([
+                            $seance->classe?->classe,
+                            $seance->salle?->nom_salle ? 'Salle '.$seance->salle->nom_salle : null,
+                        ])->filter()->implode(' · ') ?: '—' }}
+                    </span>
+                </span>
+                <span class="ho-cours-duree">{{ $seance->date_debut->diffInMinutes($seance->date_fin) }} min</span>
+            </div>
+        @empty
+            <p class="ho-vide">Aucun cours ne vous est affecté.</p>
+        @endforelse
+
+        @if ($coursPasses && $prochainsCours->isNotEmpty())
+            <p class="ho-note-bas">Aucun cours à venir : voici vos dernières séances.</p>
+        @endif
+    </section>
+
+    <section class="ho-card ho-large">
+        <div class="ho-tete">
+            <span class="ho-label">Mes classes</span>
+            <a href="{{ route('espace-intervenant.classes') }}" class="ho-tete-lien">
+                Tout voir @include('partials.icon', ['n' => 'arrow-right', 's' => 13, 'c' => 'var(--brand)', 'w' => 2])
+            </a>
+        </div>
+
+        @forelse ($classes->take(5) as $classe)
+            <a href="{{ route('espace-intervenant.roster', $classe) }}" class="ho-classe">
+                <span class="ho-pastille" style="background: {{ $classe->couleur ?: '#4f46e5' }}"></span>
+                <span class="ho-classe-txt">
+                    <span class="ho-classe-nom">{{ $classe->classe }}</span>
+                    <span class="ho-classe-meta">{{ $classe->niveau?->nom_niveau ?: '—' }}</span>
+                </span>
+                <span class="ho-classe-eff">{{ $classe->eleves_count }} élèves</span>
+            </a>
+        @empty
+            <p class="ho-vide">Aucune classe rattachée à vos créneaux.</p>
+        @endforelse
+    </section>
+
+    <section class="ho-card ho-full ho-bulletin">
+        <span class="ho-icone">@include('partials.icon', ['n' => 'clock', 's' => 22, 'c' => 'var(--brand-deep)', 'w' => 1.8])</span>
+        <span class="ho-bul-txt">
+            <span class="ho-label">Récapitulatif d'heures</span>
+            <span class="ho-bul-titre">Déclarer mes heures effectuées</span>
+            <span class="ho-bul-meta">Date, classe, nature de l'heure et volume horaire.</span>
+        </span>
+        @if (Route::has('recapitulatif.index'))
+            <a href="{{ route('recapitulatif.index') }}" class="btn">Ouvrir le récapitulatif</a>
+        @endif
+    </section>
+</div>
 @endsection

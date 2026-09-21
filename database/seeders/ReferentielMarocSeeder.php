@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Formation;
 use App\Models\Niveau;
 use App\Models\TypeEvaluation;
+use App\Models\TypeCours;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -63,6 +64,12 @@ class ReferentielMarocSeeder extends Seeder
         // installation neuve était inutilisable.
         foreach (TypeEvaluation::TYPES_MAROC as $type) {
             DB::table('amos_type_evaluation')->updateOrInsert(['type' => $type]);
+        }
+
+        // Mêmes raisons pour les natures d'heures : sans type de cours, le
+        // récapitulatif d'heures de l'espace enseignant refusait toute saisie.
+        foreach (TypeCours::TYPES_MAROC as $type) {
+            DB::table('amos_type_cours')->updateOrInsert(['type_cours' => $type]);
         }
 
         DB::transaction(function () {

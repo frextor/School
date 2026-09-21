@@ -563,6 +563,15 @@
         .ho-badge small { font-size: 10.5px; font-weight: 600; opacity: .7; margin-left: 1px; }
         .ho-badge.is-low { background: var(--danger-bg); color: var(--danger); }
 
+        .ho-classe { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); color: var(--ink); }
+        .ho-card .ho-classe:last-of-type { border-bottom: 0; }
+        .ho-classe:hover { color: var(--brand-deep); }
+        .ho-pastille { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .ho-classe-txt { min-width: 0; }
+        .ho-classe-nom { display: block; font-size: 13.5px; font-weight: 600; }
+        .ho-classe-meta { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+        .ho-classe-eff { margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: 600; color: #585e72; font-variant-numeric: tabular-nums; }
+
         .ho-full { grid-column: 1 / -1; }
         .ho-bulletin { flex-direction: row; align-items: center; gap: 15px; }
         .ho-icone {
