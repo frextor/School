@@ -79,6 +79,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 Route::post('/demo', [DemoController::class, 'store'])->name('demo.store');
 
+// Affichage d'un panneau de couloir : l'écran ouvre cette adresse et
+// n'a pas de session, la route est donc publique (identifiant du panneau).
+Route::get('panneau/{identifiant}', [App\Http\Controllers\PanneauController::class, 'affichage'])
+    ->name('panneaux.affichage');
+
 // Authentification back-office (portage du controller Admin.php CI).
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('login', [AdminAuthController::class, 'showLoginForm'])->name('login');

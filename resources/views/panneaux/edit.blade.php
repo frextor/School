@@ -1,71 +1,107 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier panneau')
+@section('title', 'Panneau · '.$panneau->titre)
 
 @section('content')
-    <a href="{{ route('panneaux.index') }}">&larr; Retour</a>
-    <h1>Modifier « {{ $panneau->titre }} »</h1>
+@php $lien = route('panneaux.affichage', $panneau->identifiant_panneaux); @endphp
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+<div class="crumb">
+    <a href="{{ route('panneaux.index') }}">Panneaux d'affichage</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $panneau->titre }}</span>
+</div>
 
-    <form method="post" action="{{ route('panneaux.update', $panneau) }}">
-        @csrf
-        @method('PUT')
+@if (session('status'))
+    <div class="status">{{ session('status') }}</div>
+@endif
 
-        <label for="identifiant_panneaux">Identifiant du panneau</label>
-        <input type="text" name="identifiant_panneaux" id="identifiant_panneaux" value="{{ old('identifiant_panneaux', $panneau->identifiant_panneaux) }}" required>
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $error){{ $error }} @endforeach</span>
+    </div>
+@endif
 
-        <label for="titre">Titre</label>
-        <input type="text" name="titre" id="titre" value="{{ old('titre', $panneau->titre) }}" required>
+<div class="page-head">
+    <div>
+        <h1>{{ $panneau->titre }}</h1>
+        <p class="page-sub">{{ $panneau->etablissement?->nom_etablissement }} · identifiant {{ $panneau->identifiant_panneaux }}</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-ghost" href="{{ $lien }}" target="_blank" rel="noopener">
+            @include('partials.icon', ['n' => 'eye', 's' => 15, 'w' => 2])Ouvrir l'affichage
+        </a>
+    </div>
+</div>
 
-        <label for="id_etablissement">Établissement</label>
-        <select name="id_etablissement" id="id_etablissement" required>
-            @foreach ($etablissements as $etablissement)
-                <option value="{{ $etablissement->id_etablissement }}" @selected(old('id_etablissement', $panneau->id_etablissement) == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
-            @endforeach
-        </select>
+{{-- L'adresse à saisir une fois dans le navigateur de l'écran. --}}
+<section class="pn-url">
+    <span class="pn-url-label">Adresse du panneau</span>
+    <div class="pn-url-ligne">
+        <input type="text" value="{{ $lien }}" readonly data-url aria-label="Adresse du panneau">
+        <button type="button" class="btn btn-ghost" data-copier>Copier</button>
+    </div>
+    <p class="pn-url-aide">Aucune connexion n'est demandée sur cette page : l'écran peut l'afficher en permanence.</p>
+</section>
 
-        <label for="annee">Année</label>
-        <input type="text" name="annee" id="annee" value="{{ old('annee', $panneau->annee) }}">
+<form method="post" action="{{ route('panneaux.update', $panneau) }}" class="pn-form">
+    @csrf
+    @method('PUT')
 
-        <label for="plage_horaire">Plage horaire affichée (heures)</label>
-        <input type="number" name="plage_horaire" id="plage_horaire" value="{{ old('plage_horaire', $panneau->plage_horaire) }}" required>
+    @include('panneaux._form', ['panneau' => $panneau])
 
-        <label for="delai_horaire">Délai de rafraîchissement (secondes)</label>
-        <input type="number" name="delai_horaire" id="delai_horaire" value="{{ old('delai_horaire', $panneau->delai_horaire) }}" required>
+    <div class="pn-pied">
+        <a href="{{ route('panneaux.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
 
-        @php $formationsSelectionnees = old('formations', $panneau->formations->pluck('id_formation')->all()); @endphp
-        <label for="formations">Formations</label>
-        <select name="formations[]" id="formations" multiple size="6">
-            @foreach ($formations as $formation)
-                <option value="{{ $formation->id_formation }}" @selected(collect($formationsSelectionnees)->contains($formation->id_formation))>{{ $formation->niveau }}</option>
-            @endforeach
-        </select>
+<form method="post" action="{{ route('panneaux.destroy', $panneau) }}" class="pn-suppr-bloc"
+      onsubmit="return confirm('Supprimer le panneau « {{ $panneau->titre }} » ?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn btn-ghost pn-danger">
+        @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer ce panneau
+    </button>
+</form>
 
-        @php $classesSelectionnees = old('classes', $panneau->classes->pluck('id_classe')->all()); @endphp
-        <label for="classes">Classes</label>
-        <select name="classes[]" id="classes" multiple size="6">
-            @foreach ($classes as $classe)
-                <option value="{{ $classe->id_classe }}" @selected(collect($classesSelectionnees)->contains($classe->id_classe))>{{ $classe->classe }}</option>
-            @endforeach
-        </select>
+<style>
+    .pn-url {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        padding: 15px 16px; margin-bottom: 14px; max-width: 920px;
+    }
+    .pn-url-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+    .pn-url-ligne { display: flex; gap: 8px; }
+    .pn-url-ligne input {
+        flex: 1; min-width: 0; max-width: none; margin: 0;
+        background: #fafbfd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+    }
+    .pn-url-ligne .btn { flex-shrink: 0; }
+    .pn-url-aide { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
 
-        @php $groupesSelectionnes = old('groupes', $panneau->groupes->pluck('id_groupe')->all()); @endphp
-        <label for="groupes">Groupes</label>
-        <select name="groupes[]" id="groupes" multiple size="6">
-            @foreach ($groupes as $groupe)
-                <option value="{{ $groupe->id_groupe }}" @selected(collect($groupesSelectionnes)->contains($groupe->id_groupe))>{{ $groupe->nom_groupe }}</option>
-            @endforeach
-        </select>
+    .pn-suppr-bloc { max-width: 920px; margin: 18px 0 0; }
+    .pn-danger { color: var(--danger); border-color: #fecaca; display: inline-flex; align-items: center; gap: 7px; }
+    .pn-danger:hover { background: var(--danger-bg); }
+    .pn-danger svg { stroke: var(--danger); }
+</style>
 
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
-    </form>
+<script>
+    (function () {
+        var bouton = document.querySelector('[data-copier]');
+        var champ = document.querySelector('[data-url]');
+        if (!bouton || !champ) return;
+
+        bouton.addEventListener('click', function () {
+            champ.select();
+            // `clipboard` n'existe pas hors HTTPS : la sélection reste copiable au clavier.
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(champ.value);
+            } else {
+                document.execCommand('copy');
+            }
+            bouton.textContent = 'Copié';
+            setTimeout(function () { bouton.textContent = 'Copier'; }, 1200);
+        });
+    })();
+</script>
 @endsection

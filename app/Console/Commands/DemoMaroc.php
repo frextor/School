@@ -17,6 +17,7 @@ use App\Models\Intervenant;
 use App\Models\Niveau;
 use App\Models\NiveauxOptions;
 use App\Models\Note;
+use App\Models\PanneauLumineux;
 use App\Models\ObjetPaiement;
 use App\Models\ResultatEpreuveEleve;
 use App\Models\Salle;
@@ -46,6 +47,9 @@ use Illuminate\Support\Facades\DB;
 class DemoMaroc extends Command
 {
     protected $signature = 'demo:maroc {--purge : Retire les données de démonstration}';
+
+    /** Identifiant du panneau de couloir créé par la démo. */
+    private const PANNEAU = 'HALL-01';
     protected $description = 'Crée (ou retire) un jeu de données de démonstration d\'école marocaine';
 
     private const ECOLE = 'Groupe Scolaire Al Amal (démo)';
@@ -112,6 +116,7 @@ class DemoMaroc extends Command
             $this->assiduite($eleves);
             $this->notes($ecole, $classes, $eleves);
             $this->emploiDuTemps($ecole, $classes, $enseignants, $salles);
+            $this->panneau($ecole, $classes);
             $this->admissions($classes);
             $this->prospects();
 
@@ -479,6 +484,26 @@ class DemoMaroc extends Command
     }
 
     /** Quelques candidats et une épreuve d'admission à venir, avec des résultats déjà saisis. */
+    /**
+     * Un panneau de couloir sur le hall : la démo doit montrer l'écran
+     * d'affichage, pas seulement sa configuration.
+     */
+    private function panneau(Etablissement $ecole, array $classes): void
+    {
+        $panneau = PanneauLumineux::firstOrNew(['identifiant_panneaux' => self::PANNEAU]);
+        $panneau->fill([
+            'id_etablissement' => $ecole->id_etablissement,
+            'titre' => "Hall d'accueil",
+            'annee' => (string) $this->anneeDebut,
+            'plage_horaire' => 8,
+            'delai_horaire' => 60,
+        ])->save();
+
+        // Sans classe sélectionnée, le panneau montrerait tout
+        // l'établissement : on cible les classes créées par la démo.
+        $panneau->classes()->sync(collect($classes)->pluck('id_classe')->all());
+    }
+
     private function admissions(array $classes): void
     {
         $epreuve = EpreuveAdmission::create([
@@ -561,6 +586,7 @@ class DemoMaroc extends Command
             Evaluation::where('id_campus', $ecole->id_etablissement)->delete();
             SnTypeEvaluation::where('id_etablissement', $ecole->id_etablissement)->delete();
             ActiviteIntervenant::where('id_etablissement', $ecole->id_etablissement)->delete();
+            PanneauLumineux::where('identifiant_panneaux', self::PANNEAU)->delete();
             Salle::where('id_etablissement', $ecole->id_etablissement)->delete();
             Intervenant::where('email', 'like', 'demo.prof%'.self::DOMAINE)->delete();
 

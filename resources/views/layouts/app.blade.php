@@ -433,6 +433,13 @@
             display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
             border-radius: 8px; border: 1px solid var(--border); margin-left: 4px;
         }
+        /* Un bouton de suppression porte `row-btn` mais reste un
+           `button[type=submit]` : sans cette remise à plat il s'affichait en
+           gros bouton indigo à côté des icônes-liens de la même colonne. */
+        button.row-btn {
+            padding: 0; background: #fff; box-shadow: none; cursor: pointer;
+        }
+        button.row-btn:hover { background: #fafbff; box-shadow: none; }
         .row-btn:hover { border-color: #c3c6f5; background: #fafbff; }
 
         .cell-user { display: flex; align-items: center; gap: 11px; }

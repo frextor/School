@@ -38,6 +38,7 @@
         'chevron-right' => 'M9 18l6-6-6-6',
         'chevron-left' => 'M15 18l-6-6 6-6',
         'list' => 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
+        'copy' => 'M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1',
         'chevron-down' => 'M6 9l6 6 6-6',
         'arrow-right' => 'M5 12h14 M13 6l6 6-6 6',
         'arrow-left' => 'M19 12H5 M11 18l-6-6 6-6',

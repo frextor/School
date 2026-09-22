@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActiviteIntervenant;
 use App\Models\Classe;
 use App\Models\Etablissement;
 use App\Models\Formation;
 use App\Models\GroupeEleve;
 use App\Models\PanneauLumineux;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,18 +20,62 @@ use Illuminate\View\View;
  * d'affichage dynamique (identifiant, établissement, formations/classes/
  * groupes concernés).
  *
- * NON couvert : l'affichage live du planning des cours sur le panneau
- * (`show_panneau`, `get_cours_panneau`, `template_cours_panneau`) — dépend
- * entièrement du module Planning (3637 lignes), non encore migré. Seule la
- * configuration (CRUD) est portée ici.
+ * L'affichage live (`show_panneau`, `get_cours_panneau`) est désormais porté
+ * lui aussi : il attendait le module Planning, migré depuis. `plage_horaire`
+ * reste le nombre d'heures affichées à partir de maintenant et `delai_horaire`
+ * l'intervalle de rafraîchissement en secondes, comme en legacy.
  */
 class PanneauController extends Controller
 {
     public function index(): View
     {
-        $panneaux = PanneauLumineux::with('etablissement')->orderBy('titre')->paginate(25);
+        $panneaux = PanneauLumineux::with(['etablissement', 'classes', 'groupes'])
+            ->orderBy('titre')
+            ->paginate(25);
 
         return view('panneaux.index', ['panneaux' => $panneaux]);
+    }
+
+    /**
+     * Écran affiché par le panneau lui-même, sans authentification : un
+     * téléviseur de couloir ne peut pas se connecter. L'adresse est celle
+     * que l'on saisit une fois dans le navigateur de l'écran.
+     *
+     * L'affichage live était annoncé comme non portable tant que le module
+     * Planning ne l'était pas ; il l'est depuis, d'où cet écran.
+     */
+    public function affichage(string $identifiant): View
+    {
+        $panneau = PanneauLumineux::with(['etablissement', 'classes', 'groupes'])
+            ->where('identifiant_panneaux', $identifiant)
+            ->firstOrFail();
+
+        $debut = Carbon::now();
+        $fin = $debut->copy()->addHours(max(1, (int) $panneau->plage_horaire));
+
+        $idsClasses = $panneau->classes->pluck('id_classe');
+        $nomsGroupes = $panneau->groupes->pluck('nom_groupe')->filter();
+
+        $seances = ActiviteIntervenant::with(['cours', 'classe', 'intervenant', 'salle'])
+            ->where('id_etablissement', $panneau->id_etablissement)
+            ->whereBetween('date_debut', [$debut, $fin])
+            // Un panneau sans classe ni groupe affiche tout l'établissement :
+            // c'est le cas d'un écran d'accueil.
+            ->when($idsClasses->isNotEmpty() || $nomsGroupes->isNotEmpty(), function ($q) use ($idsClasses, $nomsGroupes) {
+                $q->where(function ($q) use ($idsClasses, $nomsGroupes) {
+                    $q->when($idsClasses->isNotEmpty(), fn ($q) => $q->whereIn('id_classe', $idsClasses))
+                        ->when($nomsGroupes->isNotEmpty(), fn ($q) => $q->orWhereIn('groupe', $nomsGroupes));
+                });
+            })
+            ->orderBy('date_debut')
+            ->limit(30)
+            ->get();
+
+        return view('panneaux.affichage', [
+            'panneau' => $panneau,
+            'seances' => $seances,
+            'fin' => $fin,
+        ]);
     }
 
     public function create(): View

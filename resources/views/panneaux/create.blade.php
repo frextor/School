@@ -3,65 +3,36 @@
 @section('title', 'Nouveau panneau')
 
 @section('content')
-    <a href="{{ route('panneaux.index') }}">&larr; Retour</a>
-    <h1>Nouveau panneau lumineux</h1>
+@php $panneau = new \App\Models\PanneauLumineux(); @endphp
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+<div class="crumb">
+    <a href="{{ route('panneaux.index') }}">Panneaux d'affichage</a>
+    <span class="sep">/</span>
+    <span class="current">Nouveau panneau</span>
+</div>
 
-    <form method="post" action="{{ route('panneaux.store') }}">
-        @csrf
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $error){{ $error }} @endforeach</span>
+    </div>
+@endif
 
-        <label for="identifiant_panneaux">Identifiant du panneau</label>
-        <input type="text" name="identifiant_panneaux" id="identifiant_panneaux" value="{{ old('identifiant_panneaux') }}" required>
+<div class="page-head">
+    <div>
+        <h1>Nouveau panneau</h1>
+        <p class="page-sub">Un panneau, c'est un écran de couloir. Après enregistrement, son adresse s'affiche : ouvrez-la une fois sur l'écran concerné.</p>
+    </div>
+</div>
 
-        <label for="titre">Titre</label>
-        <input type="text" name="titre" id="titre" value="{{ old('titre') }}" required>
+<form method="post" action="{{ route('panneaux.store') }}" class="pn-form">
+    @csrf
 
-        <label for="id_etablissement">Établissement</label>
-        <select name="id_etablissement" id="id_etablissement" required>
-            @foreach ($etablissements as $etablissement)
-                <option value="{{ $etablissement->id_etablissement }}" @selected(old('id_etablissement') == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
-            @endforeach
-        </select>
+    @include('panneaux._form', ['panneau' => $panneau])
 
-        <label for="annee">Année</label>
-        <input type="text" name="annee" id="annee" value="{{ old('annee') }}">
-
-        <label for="plage_horaire">Plage horaire affichée (heures)</label>
-        <input type="number" name="plage_horaire" id="plage_horaire" value="{{ old('plage_horaire', 4) }}" required>
-
-        <label for="delai_horaire">Délai de rafraîchissement (secondes)</label>
-        <input type="number" name="delai_horaire" id="delai_horaire" value="{{ old('delai_horaire', 60) }}" required>
-
-        <label for="formations">Formations</label>
-        <select name="formations[]" id="formations" multiple size="6">
-            @foreach ($formations as $formation)
-                <option value="{{ $formation->id_formation }}" @selected(collect(old('formations', []))->contains($formation->id_formation))>{{ $formation->niveau }}</option>
-            @endforeach
-        </select>
-
-        <label for="classes">Classes</label>
-        <select name="classes[]" id="classes" multiple size="6">
-            @foreach ($classes as $classe)
-                <option value="{{ $classe->id_classe }}" @selected(collect(old('classes', []))->contains($classe->id_classe))>{{ $classe->classe }}</option>
-            @endforeach
-        </select>
-
-        <label for="groupes">Groupes</label>
-        <select name="groupes[]" id="groupes" multiple size="6">
-            @foreach ($groupes as $groupe)
-                <option value="{{ $groupe->id_groupe }}" @selected(collect(old('groupes', []))->contains($groupe->id_groupe))>{{ $groupe->nom_groupe }}</option>
-            @endforeach
-        </select>
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Créer</button>
-        </p>
-    </form>
+    <div class="pn-pied">
+        <a href="{{ route('panneaux.index') }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn">Créer le panneau</button>
+    </div>
+</form>
 @endsection
