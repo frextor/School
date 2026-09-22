@@ -2,18 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Classe;
+use App\Models\Eleve;
 use App\Models\Etablissement;
+use App\Models\Salle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
  * Portage de la gestion des établissements (campus) dans `Referentiel.php`
  * (get_etablissement / add_etablissement / update_etablissement / valide_update_etablissement).
  *
- * Différence assumée : `SCHOOL_NAME . ' ' . strtoupper($ville)` (constante
- * legacy en dur) devient `config('school.name') . ' ' . strtoupper($ville)`
- * — voir config/school.php et SCHOOL_NAME dans .env.
+ * L'établissement porte désormais son propre nom, saisi tel quel. Le legacy
+ * le recomposait à chaque enregistrement (`SCHOOL_NAME . ' ' . ville`), ce
+ * qui convient à un réseau dont tous les campus s'appellent « Marque VILLE »
+ * mais pas à un groupe scolaire marocain. Surtout, l'écran de modification
+ * en tirait la ville par `Str::after($nom, config('school.name'))`, qui
+ * **rend la chaîne entière quand le préfixe est absent** : ouvrir puis
+ * enregistrer « Groupe Scolaire Al Amal » le renommait en
+ * « Scoleo GROUPE SCOLAIRE AL AMAL ».
  *
  * NON couvert : suppression d'établissement (absente aussi côté legacy).
  */
@@ -37,16 +46,11 @@ class EtablissementController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate([
-            'ville' => ['required', 'string', 'max:60'],
-            'code_ville' => ['required', 'string', 'max:2'],
-            'adresse' => ['required', 'string', 'max:600'],
-            'visible' => ['boolean'],
-        ]);
+        $data = $this->valider($request);
 
         $etablissement = Etablissement::create([
-            'nom_etablissement' => config('school.name').' '.mb_strtoupper($data['ville']),
-            'code_ville' => $data['code_ville'],
+            'nom_etablissement' => $data['nom_etablissement'],
+            'code_ville' => mb_strtoupper($data['code_ville']),
             'adresse' => ucfirst($data['adresse']),
             'visible' => $request->boolean('visible'),
         ]);
@@ -58,21 +62,46 @@ class EtablissementController extends Controller
 
     public function edit(Etablissement $etablissement): View
     {
-        return view('referentiel.etablissements.edit', ['etablissement' => $etablissement]);
+        return view('referentiel.etablissements.edit', [
+            'etablissement' => $etablissement,
+            'compteurs' => $this->compteurs($etablissement),
+        ]);
     }
 
-    public function update(Request $request, Etablissement $etablissement): RedirectResponse
+    /** Ce que l'établissement porte : on ne modifie pas un campus à l'aveugle. */
+    private function compteurs(Etablissement $etablissement): array
     {
-        $data = $request->validate([
-            'ville' => ['required', 'string', 'max:60'],
+        return [
+            'classes' => Classe::where('id_etablissement', $etablissement->id_etablissement)->count(),
+            'eleves' => Eleve::whereIn(
+                'id_classe',
+                Classe::where('id_etablissement', $etablissement->id_etablissement)->pluck('id_classe')
+            )->where('visible', true)->count(),
+            'salles' => Salle::where('id_etablissement', $etablissement->id_etablissement)->count(),
+        ];
+    }
+
+    private function valider(Request $request, ?Etablissement $etablissement = null): array
+    {
+        return $request->validate([
+            'nom_etablissement' => [
+                'required', 'string', 'max:100',
+                Rule::unique('amos_etablissement', 'nom_etablissement')
+                    ->ignore($etablissement?->id_etablissement, 'id_etablissement'),
+            ],
             'code_ville' => ['required', 'string', 'max:2'],
             'adresse' => ['required', 'string', 'max:600'],
             'visible' => ['boolean'],
         ]);
+    }
+
+    public function update(Request $request, Etablissement $etablissement): RedirectResponse
+    {
+        $data = $this->valider($request, $etablissement);
 
         $etablissement->update([
-            'nom_etablissement' => config('school.name').' '.mb_strtoupper($data['ville']),
-            'code_ville' => $data['code_ville'],
+            'nom_etablissement' => $data['nom_etablissement'],
+            'code_ville' => mb_strtoupper($data['code_ville']),
             'adresse' => ucfirst($data['adresse']),
             'visible' => $request->boolean('visible'),
         ]);

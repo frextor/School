@@ -18,10 +18,6 @@
     <span class="current">Emploi du temps</span>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 <div class="page-head">
     <div>
         <h1>Emploi du temps</h1>

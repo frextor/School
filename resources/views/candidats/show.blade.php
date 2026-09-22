@@ -6,10 +6,6 @@
     <a href="{{ route('candidats.index') }}">&larr; Retour</a>
     <h1>{{ $candidat->contact?->nom_complet }}</h1>
 
-    @if (session('status'))
-        <div class="status">{{ session('status') }}</div>
-    @endif
-
     @if ($errors->any())
         <div class="status error">
             <ul style="margin:0;padding-left:1.1rem">

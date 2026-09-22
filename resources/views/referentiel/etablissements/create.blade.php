@@ -3,34 +3,31 @@
 @section('title', 'Nouvel établissement')
 
 @section('content')
-    <a href="{{ route('referentiel.etablissements.index') }}">&larr; Retour</a>
-    <h1>Nouvel établissement</h1>
+@php $etablissement = new \App\Models\Etablissement(); @endphp
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+<div class="crumb">
+    <a href="{{ route('referentiel.etablissements.index') }}">Établissements</a>
+    <span class="sep">/</span>
+    <span class="current">Nouvel établissement</span>
+</div>
 
-    <form method="post" action="{{ route('referentiel.etablissements.store') }}">
-        @csrf
+@include('partials.erreurs')
 
-        <label for="ville">Ville</label>
-        <input type="text" name="ville" id="ville" value="{{ old('ville') }}" required>
-        <p style="color:#666;font-size:0.85rem">Le nom affiché sera « {{ config('school.name') }} VILLE ».</p>
+<div class="page-head">
+    <div>
+        <h1>Nouvel établissement</h1>
+        <p class="page-sub">Un campus supplémentaire, avec son nom, son code et son adresse.</p>
+    </div>
+</div>
 
-        <label for="code_ville">Code ville (2 lettres)</label>
-        <input type="text" name="code_ville" id="code_ville" maxlength="2" value="{{ old('code_ville') }}" required>
+<form method="post" action="{{ route('referentiel.etablissements.store') }}" class="form-page">
+    @csrf
 
-        <label for="adresse">Adresse</label>
-        <input type="text" name="adresse" id="adresse" value="{{ old('adresse') }}" required>
+    @include('referentiel.etablissements._form', ['etablissement' => $etablissement])
 
-        <label><input type="checkbox" name="visible" value="1" @checked(old('visible'))> Visible</label>
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Créer</button>
-        </p>
-    </form>
+    <div class="form-actions">
+        <a href="{{ route('referentiel.etablissements.index') }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn">Créer l'établissement</button>
+    </div>
+</form>
 @endsection

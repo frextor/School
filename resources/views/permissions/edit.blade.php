@@ -1,39 +1,42 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier permission')
+@section('title', 'Permission · '.$permission->nom_permission)
 
 @section('content')
-    <a href="{{ route('permissions.index') }}">&larr; Retour</a>
-    <h1>Modifier « {{ $permission->nom_permission }} »</h1>
+<div class="crumb">
+    <a href="{{ route('permissions.index') }}">Permissions</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $permission->nom_permission }}</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+@include('partials.erreurs')
 
-    <form method="post" action="{{ route('permissions.update', $permission) }}">
-        @csrf
-        @method('PUT')
-
-        <label for="nom_permission">Nom</label>
-        <input type="text" name="nom_permission" id="nom_permission" value="{{ old('nom_permission', $permission->nom_permission) }}" required>
-
-        <label for="route">Route</label>
-        <input type="text" name="route" id="route" value="{{ old('route', $permission->route) }}" required>
-
-        <label for="ParentID">Permission parente</label>
-        <select name="ParentID" id="ParentID">
-            <option value="">-- Aucune --</option>
-            @foreach ($permissionsParentes as $parente)
-                <option value="{{ $parente->id_permission }}" @selected(old('ParentID', $permission->ParentID) == $parente->id_permission)>{{ $parente->nom_permission }}</option>
-            @endforeach
-        </select>
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
+<div class="page-head">
+    <div>
+        <h1>{{ $permission->nom_permission }}</h1>
+        <p class="page-sub">
+            <code>{{ $permission->route }}</code>
+            @if ($permission->parent) · rattachée à {{ $permission->parent->nom_permission }} @endif
         </p>
-    </form>
+    </div>
+</div>
+
+<form method="post" action="{{ route('permissions.update', $permission) }}" class="form-page">
+    @csrf
+    @method('PUT')
+    @include('permissions._form', ['permission' => $permission])
+    <div class="form-actions">
+        <a href="{{ route('permissions.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
+
+<form method="post" action="{{ route('permissions.destroy', $permission) }}" class="danger-zone form-page"
+      onsubmit="return confirm('Supprimer la permission « {{ $permission->nom_permission }} » ?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn btn-ghost is-danger">
+        @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer cette permission
+    </button>
+</form>
 @endsection

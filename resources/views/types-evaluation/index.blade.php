@@ -25,10 +25,6 @@
     <span class="current">Types d'évaluation</span>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 @if (session('error'))
     <div class="status error">
         @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])

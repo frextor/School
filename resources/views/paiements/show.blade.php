@@ -7,10 +7,6 @@
     <h1>{{ $paiement->titre }}</h1>
     <p>{{ $paiement->eleve?->contact?->nom_complet }} — {{ $paiement->date?->format('d/m/Y') }}</p>
 
-    @if (session('status'))
-        <div class="status">{{ session('status') }}</div>
-    @endif
-
     @if ($errors->any())
         <div class="status error">
             <ul style="margin:0;padding-left:1.1rem">

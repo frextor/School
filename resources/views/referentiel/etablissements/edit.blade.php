@@ -1,41 +1,69 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier établissement')
+@section('title', 'Établissement · '.$etablissement->nom_etablissement)
 
 @section('content')
-    <a href="{{ route('referentiel.etablissements.index') }}">&larr; Retour</a>
-    <h1>Modifier « {{ $etablissement->nom_etablissement }} »</h1>
+<div class="crumb">
+    <a href="{{ route('referentiel.etablissements.index') }}">Établissements</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $etablissement->nom_etablissement }}</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+@include('partials.erreurs')
+
+<div class="page-head">
+    <div>
+        <div class="title-row">
+            <h1>{{ $etablissement->nom_etablissement }}</h1>
+            @if ($etablissement->visible)
+                <span class="badge badge-success">Actif</span>
+            @else
+                <span class="badge">Masqué</span>
+            @endif
         </div>
-    @endif
+        <p class="page-sub">{{ $etablissement->adresse }}</p>
+    </div>
+</div>
 
-    @php
-        $villeActuelle = trim(Illuminate\Support\Str::after($etablissement->nom_etablissement, config('school.name')));
-    @endphp
+{{-- Ce que le campus porte : un établissement ne se modifie pas à l'aveugle. --}}
+<div class="form-page">
+    <div class="rf-stats" style="margin-bottom:14px">
+        <div class="rf-stat">
+            <span class="rf-stat-label">Élèves</span>
+            <span class="rf-stat-value">{{ $compteurs['eleves'] }}</span>
+            <span class="rf-stat-hint">inscrits sur ce campus</span>
+        </div>
+        <div class="rf-stat">
+            <span class="rf-stat-label">Classes</span>
+            <span class="rf-stat-value">{{ $compteurs['classes'] }}</span>
+            <span class="rf-stat-hint">rattachées</span>
+        </div>
+        <div class="rf-stat">
+            <span class="rf-stat-label">Salles</span>
+            <span class="rf-stat-value">{{ $compteurs['salles'] }}</span>
+            <span class="rf-stat-hint">déclarées</span>
+        </div>
+    </div>
+</div>
 
-    <form method="post" action="{{ route('referentiel.etablissements.update', $etablissement) }}">
-        @csrf
-        @method('PUT')
+<form method="post" action="{{ route('referentiel.etablissements.update', $etablissement) }}" class="form-page">
+    @csrf
+    @method('PUT')
 
-        <label for="ville">Ville</label>
-        <input type="text" name="ville" id="ville" value="{{ old('ville', $villeActuelle) }}" required>
-        <p style="color:#666;font-size:0.85rem">Le nom affiché sera « {{ config('school.name') }} VILLE ».</p>
+    @include('referentiel.etablissements._form', ['etablissement' => $etablissement])
 
-        <label for="code_ville">Code ville (2 lettres)</label>
-        <input type="text" name="code_ville" id="code_ville" maxlength="2" value="{{ old('code_ville', $etablissement->code_ville) }}" required>
+    <div class="form-actions">
+        <a href="{{ route('referentiel.etablissements.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
 
-        <label for="adresse">Adresse</label>
-        <input type="text" name="adresse" id="adresse" value="{{ old('adresse', $etablissement->adresse) }}" required>
-
-        <label><input type="checkbox" name="visible" value="1" @checked(old('visible', $etablissement->visible))> Visible</label>
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
-    </form>
+<style>
+    /* Les compteurs reprennent les cartes du référentiel pédagogique. */
+    .rf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .rf-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; padding: 13px 15px; }
+    .rf-stat-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .rf-stat-value { display: block; margin-top: 5px; font-size: 24px; font-weight: 700; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+    .rf-stat-hint { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+</style>
 @endsection

@@ -1,37 +1,48 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier rôle')
+@section('title', 'Rôle · '.$role->nom_role)
 
 @section('content')
-    <a href="{{ route('roles.index') }}">&larr; Retour</a>
-    <h1>Modifier le rôle « {{ $role->nom_role }} »</h1>
+@php $choisies = collect(old('permissions', $selectedPermissions))->map(fn ($v) => (int) $v); @endphp
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+<div class="crumb">
+    <a href="{{ route('roles.index') }}">Rôles</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $role->nom_role }}</span>
+</div>
+
+@include('partials.erreurs')
+
+<div class="page-head">
+    <div>
+        <div class="title-row">
+            <h1>{{ $role->nom_role }}</h1>
+            @if ($role->locked)
+                <span class="badge">verrouillé</span>
+            @endif
         </div>
-    @endif
+        <p class="page-sub">{{ $choisies->count() }} permission{{ $choisies->count() > 1 ? 's' : '' }} accordée{{ $choisies->count() > 1 ? 's' : '' }}</p>
+    </div>
+</div>
 
-    <form method="post" action="{{ route('roles.update', $role) }}">
+<form method="post" action="{{ route('roles.update', $role) }}" class="form-page">
+    @csrf
+    @method('PUT')
+    @include('roles._form', ['role' => $role, 'choisies' => $choisies])
+    <div class="form-actions">
+        <a href="{{ route('roles.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
+
+@unless ($role->locked)
+    <form method="post" action="{{ route('roles.destroy', $role) }}" class="danger-zone form-page"
+          onsubmit="return confirm('Supprimer le rôle « {{ $role->nom_role }} » ? Les administrateurs qui le portent perdront ces droits.')">
         @csrf
-        @method('PUT')
-
-        <label for="nom_role">Nom du rôle</label>
-        <input type="text" name="nom_role" id="nom_role" value="{{ old('nom_role', $role->nom_role) }}" required>
-
-        <label>Permissions</label>
-        @foreach ($permissions as $permission)
-            <label style="font-weight:normal">
-                <input type="checkbox" name="permissions[]" value="{{ $permission->id_permission }}"
-                    @checked(collect(old('permissions', $selectedPermissions))->contains($permission->id_permission))>
-                {{ $permission->nom_permission }}
-            </label>
-        @endforeach
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
+        @method('DELETE')
+        <button type="submit" class="btn btn-ghost is-danger">
+            @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer ce rôle
+        </button>
     </form>
+@endunless
 @endsection

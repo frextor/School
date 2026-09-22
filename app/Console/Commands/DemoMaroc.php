@@ -201,7 +201,9 @@ class DemoMaroc extends Command
         $salles = [];
         foreach (['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'Labo sciences', 'Salle informatique', 'Bibliothèque', 'Gymnase'] as $i => $nom) {
             $salles[] = Salle::create([
-                'code_salle' => 'DEMO-'.($i + 1), 'nom_salle' => $nom, 'nombre_place' => mt_rand(24, 36),
+                // `code_salle` est un varchar(5) : « DEMO-1 » y rentrait tronqué
+                // en « DEMO- », identique pour les douze salles.
+                'code_salle' => 'S'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT), 'nom_salle' => $nom, 'nombre_place' => mt_rand(24, 36),
                 'id_etablissement' => $ecole->id_etablissement, 'date_creation' => now(), 'ip' => '',
             ]);
         }

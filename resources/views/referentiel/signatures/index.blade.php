@@ -18,10 +18,6 @@
     <span class="current">Signatures</span>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 <div class="page-head">
     <div>
         <div class="title-row">

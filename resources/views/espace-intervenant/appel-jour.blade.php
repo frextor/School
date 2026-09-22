@@ -14,10 +14,6 @@
     </div>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 <div class="aj-bar">
     <div class="aj-nav">
         <a class="cal-fleche" href="{{ $lien($date->copy()->subDay()) }}" title="Jour précédent" aria-label="Jour précédent">

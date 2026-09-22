@@ -33,10 +33,6 @@
     <span class="current">Bulletins de notes</span>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 @if ($errors->any())
     <div class="status error">
         @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])

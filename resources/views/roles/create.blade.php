@@ -3,34 +3,32 @@
 @section('title', 'Nouveau rôle')
 
 @section('content')
-    <a href="{{ route('roles.index') }}">&larr; Retour</a>
-    <h1>Nouveau rôle</h1>
+@php
+    $role = new \App\Models\Role();
+    $choisies = collect(old('permissions', []))->map(fn ($v) => (int) $v);
+@endphp
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+<div class="crumb">
+    <a href="{{ route('roles.index') }}">Rôles</a>
+    <span class="sep">/</span>
+    <span class="current">Nouveau rôle</span>
+</div>
 
-    <form method="post" action="{{ route('roles.store') }}">
-        @csrf
+@include('partials.erreurs')
 
-        <label for="nom_role">Nom du rôle</label>
-        <input type="text" name="nom_role" id="nom_role" value="{{ old('nom_role') }}" required>
+<div class="page-head">
+    <div>
+        <h1>Nouveau rôle</h1>
+        <p class="page-sub">Un ensemble de permissions à accorder d'un bloc aux administrateurs qui portent ce rôle.</p>
+    </div>
+</div>
 
-        <label>Permissions</label>
-        @foreach ($permissions as $permission)
-            <label style="font-weight:normal">
-                <input type="checkbox" name="permissions[]" value="{{ $permission->id_permission }}"
-                    @checked(collect(old('permissions', []))->contains($permission->id_permission))>
-                {{ $permission->nom_permission }}
-            </label>
-        @endforeach
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Créer</button>
-        </p>
-    </form>
+<form method="post" action="{{ route('roles.store') }}" class="form-page">
+    @csrf
+    @include('roles._form', ['role' => $role, 'choisies' => $choisies])
+    <div class="form-actions">
+        <a href="{{ route('roles.index') }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn">Créer le rôle</button>
+    </div>
+</form>
 @endsection

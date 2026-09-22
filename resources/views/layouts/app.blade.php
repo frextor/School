@@ -382,6 +382,98 @@
         code { background: #f1f2f8; padding: .1rem .4rem; border-radius: 4px; font-size: 12.5px; }
         ul { padding-left: 1.1rem; }
 
+        /* ---------- Briques communes aux listes ---------- */
+        /* Intertitre d'un groupe de lignes (par établissement, par cycle...). */
+        .grp-tete { display: flex; align-items: baseline; gap: 10px; margin: 20px 2px 10px; }
+        .grp-tete:first-of-type { margin-top: 4px; }
+        .grp-tete h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+        .grp-tete > span { font-size: 12px; color: var(--faint); }
+
+        /* Un formulaire d'une seule icône, posé dans une colonne d'actions. */
+        .inline-form { display: inline-block; max-width: none; margin: 0; }
+        .row-btn.is-danger:hover { border-color: #fecaca; background: var(--danger-bg); }
+        .pagination-foot { margin-top: 16px; }
+
+        /* Écran vide : dire ce qui manque et ce que ça empêche, pas « aucun élément ». */
+        .vide-card {
+            text-align: center; padding: 50px 20px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        }
+        .vide-card p { margin: 12px 0 0; font-size: 14px; font-weight: 600; }
+        .vide-card > span { display: block; margin: 4px auto 0; max-width: 58ch; font-size: 13px; color: var(--muted); }
+        .vide-card a { display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 600; }
+
+        /* ---------- Écrans de saisie (création / modification) ----------
+           Même grammaire pour les quelque cinquante formulaires du produit :
+           une carte par thème, une grille de champs, un pied d'actions. Posé
+           ici plutôt que recopié page par page. */
+        .form-page { max-width: 880px; margin: 0; }
+        .form-page.is-wide { max-width: 1100px; }
+
+        .form-card { max-width: none; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .form-card + .form-card { margin-top: 14px; }
+        .form-card > .form-head {
+            display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+            padding: 14px 16px 12px; border-bottom: 1px solid var(--border-soft);
+        }
+        .form-head h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+        .form-head .form-sub { font-size: 12px; color: var(--muted); }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; padding: 16px; }
+        .form-grid.is-tight { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+        .form-body { padding: 16px; }
+        .form-grid > .field-full, .field-full { grid-column: 1 / -1; }
+
+        /* `field` remplace le couple <label>/<input> empilé du gabarit d'origine :
+           l'intitulé y est un <span>, ce qui laisse le label cliquable. */
+        .field { display: block; margin: 0; min-width: 0; font-weight: 400; }
+        .field > span, .field-label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+        .field input, .field select, .field textarea { width: 100%; max-width: none; }
+        .field textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+        .field-aide { display: block; margin-top: 5px; font-size: 11.5px; color: var(--muted); }
+        .field-aide code { font-size: 11px; }
+
+        /* Case à cocher présentée comme un choix motivé, titre + explication. */
+        label.check-card { display: flex; gap: 11px; margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer; font-weight: 400; }
+        .check-card:has(input:checked) { border-color: var(--brand); background: #fafbff; }
+        .check-card input { width: 15px; height: 15px; max-width: none; margin: 2px 0 0; align-self: flex-start; flex-shrink: 0; }
+        .check-card strong { display: block; font-size: 13px; margin-bottom: 2px; color: var(--ink); }
+        .check-card span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+        /* Choix court (2 à 4 valeurs) : des boutons plutôt qu'une liste déroulante. */
+        .seg-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .seg-opt { margin: 0; }
+        .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .seg-opt > span {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 58px; padding: 9px 14px;
+            border: 1px solid var(--border); border-radius: 9px; background: #fff;
+            font-size: 13px; font-weight: 600; color: #585e72; cursor: pointer;
+        }
+        .seg-opt > span:hover { border-color: #c3c6f5; }
+        .seg-opt input:checked + span { border-color: var(--brand); background: var(--brand-light); color: var(--brand-deep); }
+        .seg-opt input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+        /* Liste de cases en pastilles (classes, permissions, niveaux…). */
+        .pick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        label.pick {
+            display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 7px 13px;
+            border: 1px solid var(--border); border-radius: 999px; background: #fff;
+            font-size: 12.5px; font-weight: 600; color: #585e72; cursor: pointer;
+        }
+        .pick:hover { border-color: #c3c6f5; }
+        .pick input { width: 14px; height: 14px; max-width: none; margin: 0; cursor: pointer; }
+        .pick:has(input:checked) { border-color: var(--brand); background: var(--brand-light); color: var(--brand-deep); }
+
+        .form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+        .form-actions .btn:last-child { margin-left: auto; }
+        .danger-zone { max-width: none; margin: 18px 0 0; }
+
+        /* Fiche de consultation : une suite de libellé / valeur. */
+        .detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 2px 16px; padding: 4px 16px 16px; }
+        .detail-line { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--border-soft); min-width: 0; }
+        .detail-line > span:first-child { font-size: 12px; color: var(--muted); white-space: nowrap; }
+        .detail-line > span:last-child { font-size: 13.5px; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+
         /* ---------- Écrans de liste modernisés (recherche/filtres + tableau) ----------
            Extrait de eleves/index.blade.php pour être partagé par toutes les listes
            (candidats, contacts, entreprises, etc.) plutôt que dupliqué par page. */

@@ -9,10 +9,6 @@
     <span class="current">Panneaux d'affichage</span>
 </div>
 
-@if (session('status'))
-    <div class="status">{{ session('status') }}</div>
-@endif
-
 <div class="page-head">
     <div>
         <h1>Panneaux d'affichage</h1>
