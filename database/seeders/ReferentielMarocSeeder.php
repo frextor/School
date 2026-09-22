@@ -55,6 +55,35 @@ class ReferentielMarocSeeder extends Seeder
         ]],
     ];
 
+    /**
+     * Volume horaire hebdomadaire indicatif par cycle et par matière.
+     *
+     * Ordres de grandeur des grilles de l'Éducation nationale marocaine
+     * (~20 h en maternelle, ~28 h au primaire, ~30 h au collège et au lycée).
+     * Ils ne sont appliqués qu'aux lignes encore à 0 h : une grille ajustée
+     * par l'école n'est jamais écrasée par une relance du seeder.
+     */
+    private const HEURES = [
+        'Maternelle' => [
+            'Langage et communication' => 6, 'Graphisme et écriture' => 4, 'Activités artistiques' => 3,
+            'Motricité' => 3, 'Éveil scientifique' => 2,
+        ],
+        'Primaire' => [
+            'Arabe' => 8, 'Français' => 6, 'Mathématiques' => 5, 'Éducation islamique' => 2,
+            'Éducation physique' => 2, 'Éveil scientifique' => 1.5, 'Anglais' => 1.5, 'Éducation artistique' => 1.5,
+        ],
+        'Collège' => [
+            'Arabe' => 5, 'Français' => 5, 'Mathématiques' => 5, 'Anglais' => 3, 'Histoire-Géographie' => 3,
+            'Physique-Chimie' => 2, 'Sciences de la vie et de la terre' => 2, 'Éducation islamique' => 2,
+            'Éducation physique' => 2, 'Informatique' => 1,
+        ],
+        'Lycée' => [
+            'Mathématiques' => 5, 'Français' => 4, 'Physique-Chimie' => 4, 'Anglais' => 3,
+            'Sciences de la vie et de la terre' => 3, 'Arabe' => 2, 'Philosophie' => 2,
+            'Histoire-Géographie' => 2, 'Éducation islamique' => 2, 'Éducation physique' => 2,
+        ],
+    ];
+
     public function run(): void
     {
         // Types d'évaluation du système marocain (liste portée par le modèle,
@@ -113,5 +142,45 @@ class ReferentielMarocSeeder extends Seeder
 
             $this->command?->info(count($progression).' niveaux marocains en place, répartis sur '.count(self::CYCLES).' cycles.');
         });
+
+        $this->volumesHoraires();
+    }
+
+    /**
+     * Remplit les heures hebdomadaires des matières déjà rattachées à un
+     * niveau, là où elles valent encore 0 : l'écran « Référentiel
+     * pédagogique » a alors une grille lisible dès la première ouverture.
+     *
+     * Publique parce que `demo:maroc` rattache les matières *après* avoir
+     * appelé ce seeder : il doit pouvoir repasser sur les lignes créées.
+     */
+    public function volumesHoraires(): void
+    {
+        $remplies = 0;
+
+        foreach (self::HEURES as $nomCycle => $heuresParMatiere) {
+            $idsNiveaux = Niveau::whereHas('formation', fn ($q) => $q->where('niveau', $nomCycle))
+                ->pluck('id_niveau');
+
+            if ($idsNiveaux->isEmpty()) {
+                continue;
+            }
+
+            foreach ($heuresParMatiere as $nomMatiere => $heures) {
+                $idCours = DB::table('amos_cours')->where('nom_cours', $nomMatiere)->value('id_cours');
+
+                if (! $idCours) {
+                    continue;
+                }
+
+                $remplies += DB::table('matiere_niveau')
+                    ->whereIn('id_niveau', $idsNiveaux)
+                    ->where('id_cours', $idCours)
+                    ->where('volume_horaire', '<=', 0)
+                    ->update(['volume_horaire' => $heures, 'updated_at' => now()]);
+            }
+        }
+
+        $this->command?->info($remplies.' volumes horaires hebdomadaires renseignés.');
     }
 }

@@ -163,6 +163,10 @@ class DemoMaroc extends Command
                 }
             }
         }
+
+        // Le seeder du référentiel est passé avant que ces lignes existent :
+        // il repasse pour leur donner leur volume horaire hebdomadaire.
+        (new ReferentielMarocSeeder())->volumesHoraires();
     }
 
     private function catalogueOptions(): void

@@ -7,10 +7,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * Matières enseignées à un niveau et leur coefficient (K-12).
+ * Matières enseignées à un niveau, leur coefficient et leur volume
+ * horaire hebdomadaire (K-12).
  *
- * Géré depuis l'écran d'édition d'un niveau, comme le catalogue d'options
- * facturables : un coefficient n'a de sens que rapporté à un niveau.
+ * Rattachement et retrait d'une matière, depuis la fiche d'un niveau comme
+ * depuis l'écran « Référentiel pédagogique » : les deux reviennent sur la
+ * page d'appel (`back()`). Le réglage en masse des coefficients et des
+ * heures d'un niveau passe par `ReferentielController::enregistrer()`.
  */
 class MatiereNiveauController extends Controller
 {
@@ -19,6 +22,7 @@ class MatiereNiveauController extends Controller
         $data = $request->validate([
             'id_cours' => ['required', 'integer', 'exists:amos_cours,id_cours'],
             'coefficient' => ['required', 'numeric', 'min:0.5', 'max:20'],
+            'volume_horaire' => ['nullable', 'numeric', 'min:0', 'max:60'],
             'ordre' => ['nullable', 'integer', 'min:1', 'max:255'],
         ]);
 
@@ -28,6 +32,7 @@ class MatiereNiveauController extends Controller
 
         $niveau->matieres()->attach($data['id_cours'], [
             'coefficient' => $data['coefficient'],
+            'volume_horaire' => $data['volume_horaire'] ?? 0,
             'ordre' => $data['ordre'] ?? ($niveau->matieres()->count() + 1),
         ]);
 
@@ -38,13 +43,23 @@ class MatiereNiveauController extends Controller
     {
         $data = $request->validate([
             'coefficient' => ['required', 'numeric', 'min:0.5', 'max:20'],
+            'volume_horaire' => ['nullable', 'numeric', 'min:0', 'max:60'],
             'ordre' => ['nullable', 'integer', 'min:1', 'max:255'],
         ]);
 
-        $niveau->matieres()->updateExistingPivot($idCours, [
+        $pivot = [
             'coefficient' => $data['coefficient'],
             'ordre' => $data['ordre'] ?? 1,
-        ]);
+        ];
+
+        // La fiche d'un niveau règle le coefficient sans parler des heures :
+        // les écraser à 0 effacerait en silence la grille horaire saisie
+        // depuis le référentiel. On n'écrit la colonne que si elle est envoyée.
+        if ($request->has('volume_horaire')) {
+            $pivot['volume_horaire'] = $data['volume_horaire'] ?? 0;
+        }
+
+        $niveau->matieres()->updateExistingPivot($idCours, $pivot);
 
         return back()->with('status', 'Coefficient mis à jour.');
     }

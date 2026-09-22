@@ -18,6 +18,12 @@ class Formation extends Model
 
     protected $fillable = ['niveau', 'description', 'priorite'];
 
+    /** Niveaux rattachés à ce cycle (Maternelle → PS/MS/GS, etc.). */
+    public function niveaux()
+    {
+        return $this->hasMany(Niveau::class, 'id_formation', 'id_formation');
+    }
+
     public function reunions()
     {
         return $this->belongsToMany(

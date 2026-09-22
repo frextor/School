@@ -26,7 +26,7 @@
             ['referentiel.cours.index', 'referentiel.cours.*', 'book', 'Matières'],
             ['planning.index', 'planning.*', 'cal', 'Emploi du temps'],
             ['referentiel.periodes-formation.index', 'referentiel.periodes-formation.*', 'cal', 'Périodes scolaires'],
-            ['referentiel.ref.index', 'referentiel.ref.*', 'clock', 'Heures par matière'],
+            ['referentiel.ref.index', 'referentiel.ref.*', 'list', 'Référentiel pédagogique'],
             ['referentiel.parametrage.index', 'referentiel.parametrage.*', 'chart', 'Volumes horaires'],
         ]],
         ['Notation & bulletins', [

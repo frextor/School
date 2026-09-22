@@ -400,13 +400,12 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('/', [ParametrageController::class, 'save'])->name('save');
         });
 
-        // Référentiel des heures d'enseignement (portage réduit de Ref.php).
+        // Référentiel pédagogique : matières, coefficients et volumes horaires
+        // par niveau (remplace la grille par unité d'enseignement de Ref.php).
         Route::prefix('ref')->name('ref.')->group(function () {
             Route::get('/', [ReferentielController::class, 'index'])->name('index');
-            Route::post('niveau', [ReferentielController::class, 'storeNiveau'])->name('niveau.store');
-            Route::delete('niveau/{referentielNiveau}', [ReferentielController::class, 'destroyNiveau'])->name('niveau.destroy');
-            Route::post('classe', [ReferentielController::class, 'storeClasse'])->name('classe.store');
-            Route::delete('classe/{referentielClasse}', [ReferentielController::class, 'destroyClasse'])->name('classe.destroy');
+            Route::post('niveau/{niveau}', [ReferentielController::class, 'enregistrer'])->name('niveau.save');
+            Route::post('dupliquer', [ReferentielController::class, 'dupliquer'])->name('dupliquer');
         });
 
         Route::resource('types-piece', TypePieceEntrepriseController::class)

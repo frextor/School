@@ -1,428 +1,583 @@
 @extends('layouts.app')
 
-@section('title', 'Référentiel des heures')
+@section('title', 'Référentiel pédagogique')
 
 @section('content')
 @php
-    $pret = $idEtablissement && $idUe && $annee !== '';
-    $onglet = request('onglet', 'niveau') === 'classe' ? 'classe' : 'niveau';
-    $semestreFiltre = request('semestre');
-    $lignes = $onglet === 'classe' ? ($lignesClasse ?? collect()) : ($lignesNiveau ?? collect());
-    if ($semestreFiltre) {
-        $lignes = $lignes->filter(fn ($l) => strtolower($l->semestre) === strtolower($semestreFiltre));
-    }
+    // Affichage des nombres : 2 devient « 2 », 1.5 devient « 1,5 ».
+    $n = fn ($valeur) => rtrim(rtrim(number_format((float) $valeur, 1, ',', ' '), '0'), ',');
 
-    $somme = fn ($collection, $champ) => $collection->sum(fn ($l) => (float) $l->{$champ});
-    $h = fn ($valeur) => rtrim(rtrim(number_format((float) $valeur, 2, ',', ' '), '0'), ',');
+    // Valeur d'un <input type="number"> : séparateur point, sans zéro superflu.
+    $saisie = fn ($valeur) => rtrim(rtrim(number_format((float) $valeur, 2, '.', ''), '0'), '.') ?: '0';
 
-    $nomEtablissement = collect($etablissements)->firstWhere('id_etablissement', $idEtablissement)?->nom_etablissement;
-    $nomUe = collect($unites)->firstWhere('id_unite_enseignement', $idUe)?->nom_unite_enseignement;
-    $contexte = collect([$nomUe, $annee, $nomEtablissement])->filter()->implode(' · ');
+    $cycleActif = request('cycle');
+    $niveauActif = request('niveau');
+    $filtre = $cycleActif || $niveauActif || $recherche !== '';
+
+    // Les fiches s'ouvrent d'office quand la liste est courte ou filtrée :
+    // seize niveaux dépliés d'un coup ne se lisent pas.
+    $ouvrir = $filtre || $niveaux->count() <= 3;
+
+    $parCycle = $niveaux->groupBy(fn ($niveau) => $niveau->formation?->niveau ?: 'Sans cycle');
 @endphp
 
 <div class="crumb">
     <a href="{{ route('admin.dashboard') }}">Accueil</a>
     <span class="sep">/</span>
-    <span class="current">Référentiel des heures</span>
+    <span class="current">Référentiel pédagogique</span>
 </div>
+
+@if (session('status'))
+    <div class="status">{{ session('status') }}</div>
+@endif
+
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $erreur){{ $erreur }} @endforeach</span>
+    </div>
+@endif
 
 <div class="page-head">
     <div>
-        <h1>Référentiel des heures d'enseignement</h1>
-        <p class="page-sub">Volumes horaires et ECTS par unité d'enseignement, déclinés par niveau puis par classe.</p>
+        <h1>Référentiel pédagogique</h1>
+        <p class="page-sub">Les matières enseignées à chaque niveau, leur coefficient dans la moyenne générale et leur volume horaire hebdomadaire.</p>
     </div>
-    @if ($pret)
-        <div class="page-actions">
-            <a href="{{ request()->fullUrlWithQuery(['export' => 1]) }}" class="btn btn-ghost">
-                @include('partials.icon', ['n' => 'download', 's' => 15, 'w' => 2])Exporter
-            </a>
-        </div>
-    @endif
+    <div class="page-actions">
+        <a href="{{ request()->fullUrlWithQuery(['export' => 1]) }}" class="btn btn-ghost">
+            @include('partials.icon', ['n' => 'download', 's' => 15, 'w' => 2])Exporter
+        </a>
+    </div>
 </div>
 
-{{-- ---------- Contexte : établissement / UE / année ---------- --}}
-<form method="get" action="{{ route('referentiel.ref.index') }}" class="ctx-card">
-    <input type="hidden" name="onglet" value="{{ $onglet }}">
-
-    <div class="ctx-row">
-        <label>
-            <span>Établissement</span>
-            <select name="id_etablissement" onchange="this.form.submit()">
-                <option value="">— Choisir —</option>
-                @foreach ($etablissements as $etablissement)
-                    <option value="{{ $etablissement->id_etablissement }}" @selected($idEtablissement == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
-                @endforeach
-            </select>
-        </label>
-
-        <label class="ctx-wide">
-            <span>Unité d'enseignement</span>
-            <select name="id_unite_enseignement" onchange="this.form.submit()">
-                <option value="">— Choisir —</option>
-                @foreach ($unites as $unite)
-                    <option value="{{ $unite->id_unite_enseignement }}" @selected($idUe == $unite->id_unite_enseignement)>{{ $unite->nom_unite_enseignement }}</option>
-                @endforeach
-            </select>
-        </label>
-
-        <label class="ctx-narrow">
-            <span>Année</span>
-            <input type="text" name="annee" value="{{ $annee }}" placeholder="ex : 2025-2026">
-        </label>
-
-        <button type="submit" class="btn">Afficher</button>
+{{-- ---------- Ce que pèse le référentiel affiché ---------- --}}
+<div class="rf-stats">
+    <div class="rf-stat">
+        <span class="rf-stat-label">Niveaux</span>
+        <span class="rf-stat-value">{{ $stats['couverts'] }}<span class="rf-stat-sur">/{{ $stats['niveaux'] }}</span></span>
+        <span class="rf-stat-hint">avec un référentiel</span>
     </div>
-
-    @if ($pret)
-        @php
-            $toutes = ($lignesNiveau ?? collect())->concat($lignesClasse ?? collect());
-            $volumeTotal = $somme($lignes, 'volume');
-            $ectsTotal = $somme($lignes, 'ects');
-            $s1 = $somme($lignes->filter(fn ($l) => strtolower($l->semestre) === 's1'), 'volume');
-            $s2 = $somme($lignes->filter(fn ($l) => strtolower($l->semestre) === 's2'), 'volume');
-            $nbIntervenants = $lignes->pluck('id_intervenant')->filter()->unique()->count();
-        @endphp
-        <div class="ctx-totals">
-            <div class="ctx-total is-brand">
-                <span class="ctx-total-label">Volume total</span>
-                <span class="ctx-total-value">{{ $h($volumeTotal) }} h</span>
-                <span class="ctx-total-hint">{{ $lignes->count() }} ligne(s)</span>
-            </div>
-            <div class="ctx-total is-brand">
-                <span class="ctx-total-label">ECTS</span>
-                <span class="ctx-total-value" style="color:var(--brand-deep)">{{ $h($ectsTotal) }}</span>
-                <span class="ctx-total-hint">sur l'UE</span>
-            </div>
-            <div class="ctx-total">
-                <span class="ctx-total-label">Semestre 1</span>
-                <span class="ctx-total-value">{{ $h($s1) }} h</span>
-                <span class="ctx-total-hint">cours magistraux inclus</span>
-            </div>
-            <div class="ctx-total">
-                <span class="ctx-total-label">Semestre 2</span>
-                <span class="ctx-total-value">{{ $h($s2) }} h</span>
-                <span class="ctx-total-hint">cours magistraux inclus</span>
-            </div>
-            <div class="ctx-total">
-                <span class="ctx-total-label">Intervenants</span>
-                <span class="ctx-total-value">{{ $nbIntervenants }}</span>
-                <span class="ctx-total-hint">affectés à l'UE</span>
-            </div>
-        </div>
-    @endif
-</form>
-
-@if (! $pret)
-    <div class="table-card">
-        <div class="empty-state">
-            @include('partials.icon', ['n' => 'clock', 's' => 28, 'c' => '#c9cdd9', 'w' => 1.6])
-            <p>Choisissez un établissement, une unité d'enseignement et une année pour afficher le référentiel.</p>
-        </div>
+    <div class="rf-stat">
+        <span class="rf-stat-label">Matières</span>
+        <span class="rf-stat-value">{{ $stats['matieres'] }}</span>
+        <span class="rf-stat-hint">{{ $stats['lignes'] }} ligne{{ $stats['lignes'] > 1 ? 's' : '' }} au total</span>
     </div>
-@else
-    {{-- ---------- Onglets niveau / classe ---------- --}}
-    <div class="tabs">
-        @foreach (['niveau' => ['Par niveau', ($lignesNiveau ?? collect())->count()], 'classe' => ['Par classe', ($lignesClasse ?? collect())->count()]] as $cle => [$libelle, $nombre])
-            <a href="{{ request()->fullUrlWithQuery(['onglet' => $cle]) }}" class="tab {{ $onglet === $cle ? 'is-active' : '' }}">
-                {{ $libelle }}<span class="tab-badge">{{ $nombre }}</span>
-            </a>
+    <div class="rf-stat is-brand">
+        <span class="rf-stat-label">Volume hebdomadaire</span>
+        <span class="rf-stat-value">{{ $n($stats['heures']) }} h</span>
+        <span class="rf-stat-hint">tous niveaux confondus</span>
+    </div>
+    <div class="rf-stat {{ $stats['sansHeures'] ? 'is-alerte' : '' }}">
+        <span class="rf-stat-label">Heures à renseigner</span>
+        <span class="rf-stat-value">{{ $stats['sansHeures'] }}</span>
+        <span class="rf-stat-hint">{{ $stats['sansHeures'] ? 'matières encore à 0 h' : 'référentiel complet' }}</span>
+    </div>
+</div>
+
+{{-- ---------- Filtres ---------- --}}
+<form method="get" action="{{ route('referentiel.ref.index') }}" class="rf-filtres">
+    <div class="rf-cycles">
+        <a href="{{ route('referentiel.ref.index') }}" class="rf-cycle {{ $cycleActif ? '' : 'is-active' }}">Tous les cycles</a>
+        @foreach ($cycles as $cycle)
+            <a href="{{ route('referentiel.ref.index', ['cycle' => $cycle->id_formation]) }}"
+               class="rf-cycle {{ (string) $cycleActif === (string) $cycle->id_formation ? 'is-active' : '' }}">{{ $cycle->niveau }}</a>
         @endforeach
     </div>
 
-    <div class="table-card">
-        <div class="table-head">
-            <span class="table-count">
-                {{ $onglet === 'classe' ? 'Déclinaison par classe' : 'Déclinaison par niveau' }} — {{ $contexte }}
-            </span>
-            <div class="seg">
-                @foreach (['' => 'Tous les semestres', 's1' => 'Semestre 1', 's2' => 'Semestre 2'] as $valeur => $libelle)
-                    <a href="{{ request()->fullUrlWithQuery(['semestre' => $valeur ?: null]) }}"
-                       class="seg-item {{ (string) $semestreFiltre === (string) $valeur ? 'is-active' : '' }}">{{ $libelle }}</a>
-                @endforeach
-            </div>
-        </div>
+    <div class="rf-recherche">
+        @if ($cycleActif)<input type="hidden" name="cycle" value="{{ $cycleActif }}">@endif
 
-        <div class="table-scroll">
-            <table class="data-table ref-table">
-                <thead>
-                    <tr>
-                        <th>Sem.</th>
-                        <th>Niveau</th>
-                        @if ($onglet === 'classe')<th>Classe</th>@endif
-                        <th>Cours</th>
-                        <th>Intervenant</th>
-                        <th class="num">CC</th>
-                        <th class="num">CR</th>
-                        <th class="num">TD</th>
-                        <th class="num">EI</th>
-                        <th class="num">Volume</th>
-                        <th class="num">ECTS</th>
-                        <th class="col-actions"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @php $colonnesTexte = $onglet === 'classe' ? 5 : 4; @endphp
-                    @forelse ($lignes->groupBy(fn ($l) => strtolower($l->semestre)) as $semestre => $groupe)
-                        <tr class="group-row">
-                            <td colspan="{{ $colonnesTexte + 7 }}">
-                                Semestre {{ substr($semestre, 1) }}
-                                <span class="group-sub">{{ $groupe->count() }} lignes · {{ $h($somme($groupe, 'volume')) }} h · {{ $h($somme($groupe, 'ects')) }} ECTS</span>
-                            </td>
-                        </tr>
-                        @foreach ($groupe as $ligne)
-                            @php
-                                $intervenant = $ligne->intervenant ? $ligne->intervenant->nom.' '.$ligne->intervenant->prenom : null;
-                                $initiales = $ligne->intervenant
-                                    ? mb_strtoupper(mb_substr($ligne->intervenant->nom, 0, 1).mb_substr($ligne->intervenant->prenom, 0, 1))
-                                    : '—';
-                            @endphp
-                            <tr>
-                                <td><span class="tag">{{ strtoupper($ligne->semestre) }}</span></td>
-                                <td class="nowrap">{{ $ligne->niveau?->nom_niveau ?? '—' }}</td>
-                                @if ($onglet === 'classe')
-                                    <td><span class="tag tag-violet">{{ $ligne->classe?->classe ?? '—' }}</span></td>
-                                @endif
-                                <td class="cell-course">{{ $ligne->cours?->nom_cours ?? '—' }}</td>
-                                <td>
-                                    <span class="cell-user">
-                                        <span class="cell-avatar is-small">{{ $initiales }}</span>
-                                        <span class="nowrap">{{ $intervenant ?? '—' }}</span>
-                                    </span>
-                                </td>
-                                <td class="num">{{ $h($ligne->cc) }}</td>
-                                <td class="num">{{ $h($ligne->cr) }}</td>
-                                <td class="num">{{ $h($ligne->td) }}</td>
-                                <td class="num">{{ $h($ligne->ei) }}</td>
-                                <td class="num strong">{{ $h($ligne->volume) }}</td>
-                                <td class="num"><span class="pill pill-brand">{{ $h($ligne->ects) }}</span></td>
-                                <td class="col-actions">
-                                    <form method="post"
-                                          action="{{ $onglet === 'classe' ? route('referentiel.ref.classe.destroy', $ligne) : route('referentiel.ref.niveau.destroy', $ligne) }}"
-                                          onsubmit="return confirm('Supprimer cette ligne ?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="row-btn is-danger" title="Supprimer la ligne">
-                                            @include('partials.icon', ['n' => 'trash', 's' => 14, 'c' => '#b91c1c'])
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
+        <label class="rf-champ">
+            <span>Niveau</span>
+            <select name="niveau" onchange="this.form.submit()">
+                <option value="">Tous les niveaux</option>
+                @foreach ($niveauxTous as $nomCycle => $niveauxDuCycle)
+                    <optgroup label="{{ $nomCycle }}">
+                        @foreach ($niveauxDuCycle as $niveau)
+                            <option value="{{ $niveau->id_niveau }}" @selected((string) $niveauActif === (string) $niveau->id_niveau)>{{ $niveau->nom_niveau }}</option>
                         @endforeach
-                    @empty
-                        <tr>
-                            <td colspan="{{ $colonnesTexte + 7 }}" class="empty-cell">
-                                @include('partials.icon', ['n' => 'clock', 's' => 26, 'c' => '#c9cdd9', 'w' => 1.6])
-                                <span>Aucune ligne pour ce filtre.</span>
-                            </td>
-                        </tr>
-                    @endforelse
+                    </optgroup>
+                @endforeach
+            </select>
+        </label>
 
-                    @if ($lignes->count())
-                        <tr class="total-row">
-                            <td colspan="{{ $colonnesTexte }}">Total {{ $onglet === 'classe' ? 'par classe' : 'par niveau' }}</td>
-                            <td class="num">{{ $h($somme($lignes, 'cc')) }}</td>
-                            <td class="num">{{ $h($somme($lignes, 'cr')) }}</td>
-                            <td class="num">{{ $h($somme($lignes, 'td')) }}</td>
-                            <td class="num">{{ $h($somme($lignes, 'ei')) }}</td>
-                            <td class="num">{{ $h($somme($lignes, 'volume')) }}</td>
-                            <td class="num"><span class="pill pill-solid">{{ $h($somme($lignes, 'ects')) }}</span></td>
-                            <td></td>
-                        </tr>
+        <label class="rf-champ rf-champ-large">
+            <span>Matière</span>
+            <input type="text" name="recherche" value="{{ $recherche }}" placeholder="Arabe, Mathématiques…">
+        </label>
+
+        <button type="submit" class="btn">Filtrer</button>
+        @if ($filtre)
+            <a href="{{ route('referentiel.ref.index') }}" class="btn btn-ghost">Réinitialiser</a>
+        @endif
+    </div>
+</form>
+
+{{-- ---------- Le référentiel, cycle par cycle ---------- --}}
+@forelse ($parCycle as $nomCycle => $niveauxCycle)
+    <div class="rf-cycle-tete">
+        <h2>{{ $nomCycle }}</h2>
+        <span>{{ $niveauxCycle->count() }} niveau{{ $niveauxCycle->count() > 1 ? 'x' : '' }}</span>
+    </div>
+
+    @foreach ($niveauxCycle as $niveau)
+        @php
+            $lignes = $niveau->matieres;
+            $totalCoef = $lignes->sum(fn ($m) => (float) $m->pivot->coefficient);
+            $totalHeures = $lignes->sum(fn ($m) => (float) $m->pivot->volume_horaire);
+            $dispo = $matieres->whereNotIn('id_cours', $lignes->pluck('id_cours'));
+        @endphp
+
+        <details class="rf-niveau" @if($ouvrir) open @endif>
+            <summary class="rf-niveau-tete">
+                <span class="rf-code">{{ $niveau->code_niveau }}</span>
+                <span class="rf-niveau-id">
+                    <span class="rf-niveau-nom">{{ $niveau->nom_niveau }}</span>
+                    <span class="rf-niveau-sub">{{ $niveau->classes_count }} classe{{ $niveau->classes_count > 1 ? 's' : '' }}</span>
+                </span>
+                <span class="rf-resume">
+                    <span class="rf-mesure"><strong>{{ $lignes->count() }}</strong> matière{{ $lignes->count() > 1 ? 's' : '' }}</span>
+                    <span class="rf-mesure"><strong>{{ $n($totalCoef) }}</strong> de coefficient</span>
+                    <span class="rf-mesure rf-mesure-h"><strong>{{ $n($totalHeures) }} h</strong> / semaine</span>
+                </span>
+                <span class="rf-chevron">@include('partials.icon', ['n' => 'chevron-down', 's' => 15, 'c' => '#9aa0b0', 'w' => 2.2])</span>
+            </summary>
+
+            <div class="rf-niveau-corps">
+                @if ($lignes->isEmpty())
+                    <div class="rf-vide">
+                        @include('partials.icon', ['n' => 'book', 's' => 24, 'c' => '#c9cdd9', 'w' => 1.6])
+                        <p>Aucune matière au référentiel de ce niveau.</p>
+                        <span>Sans matière, ni les notes ni les bulletins de ce niveau ne peuvent être saisis.</span>
+                    </div>
+                @else
+                    {{-- Tout le niveau s'enregistre d'un bloc : on règle une grille
+                         horaire en une fois, pas matière par matière. --}}
+                    <form method="post" action="{{ route('referentiel.ref.niveau.save', $niveau) }}" data-grille>
+                        @csrf
+                        <div class="rf-scroll">
+                            <table class="rf-table">
+                                <thead>
+                                    <tr>
+                                        <th class="rf-col-rang">Rang</th>
+                                        <th>Matière</th>
+                                        <th class="rf-col-num">Coefficient</th>
+                                        <th class="rf-col-num">Heures / semaine</th>
+                                        <th class="rf-col-part">Part de la moyenne</th>
+                                        <th class="rf-col-act"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($lignes as $matiere)
+                                        @php
+                                            $coef = (float) $matiere->pivot->coefficient;
+                                            $part = $totalCoef > 0 ? round($coef / $totalCoef * 100) : 0;
+                                        @endphp
+                                        <tr>
+                                            <td class="rf-col-rang">
+                                                <input type="number" min="1" max="255" class="rf-mini"
+                                                       name="lignes[{{ $matiere->id_cours }}][ordre]"
+                                                       value="{{ (int) $matiere->pivot->ordre }}" aria-label="Rang de {{ $matiere->nom_cours }}">
+                                            </td>
+                                            <td class="rf-matiere">{{ $matiere->nom_cours }}</td>
+                                            <td class="rf-col-num">
+                                                <input type="number" step="0.5" min="0.5" max="20" required class="rf-num"
+                                                       name="lignes[{{ $matiere->id_cours }}][coefficient]"
+                                                       value="{{ $saisie($coef) }}"
+                                                       aria-label="Coefficient de {{ $matiere->nom_cours }}">
+                                            </td>
+                                            <td class="rf-col-num">
+                                                <input type="number" step="0.5" min="0" max="60" class="rf-num"
+                                                       name="lignes[{{ $matiere->id_cours }}][volume_horaire]"
+                                                       value="{{ $saisie($matiere->pivot->volume_horaire) }}"
+                                                       aria-label="Heures hebdomadaires de {{ $matiere->nom_cours }}">
+                                            </td>
+                                            <td class="rf-col-part">
+                                                <span class="rf-jauge" aria-hidden="true"><span style="width:{{ min(100, $part) }}%"></span></span>
+                                                <span class="rf-part">{{ $part }} %</span>
+                                            </td>
+                                            <td class="rf-col-act">
+                                                {{-- Le formulaire de retrait vit hors de la grille (les
+                                                     formulaires ne s'imbriquent pas) : l'attribut `form`
+                                                     le relie à ce bouton. --}}
+                                                <button type="submit" class="row-btn is-danger"
+                                                        form="rf-suppr-{{ $niveau->id_niveau }}-{{ $matiere->id_cours }}"
+                                                        title="Retirer {{ $matiere->nom_cours }} de ce niveau">
+                                                    @include('partials.icon', ['n' => 'trash', 's' => 14, 'c' => '#b91c1c', 'w' => 2])
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2">Total</td>
+                                        <td class="rf-col-num">{{ $n($totalCoef) }}</td>
+                                        <td class="rf-col-num">{{ $n($totalHeures) }} h</td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="rf-actions">
+                            <button type="button" class="rf-ajout-btn" data-ouvrir-ajout="{{ $niveau->id_niveau }}">
+                                @include('partials.icon', ['n' => 'plus', 's' => 14, 'w' => 2.2])Ajouter une matière
+                            </button>
+                            <button type="button" class="rf-ajout-btn" data-dupliquer="{{ $niveau->id_niveau }}"
+                                    data-nom="{{ $niveau->nom_niveau }}">
+                                @include('partials.icon', ['n' => 'copy', 's' => 14, 'w' => 2])Recopier vers d'autres niveaux
+                            </button>
+                            <span class="rf-dirty" data-dirty hidden>Modifications non enregistrées</span>
+                            <button type="submit" class="btn">Enregistrer</button>
+                        </div>
+                    </form>
+
+                    @foreach ($lignes as $matiere)
+                        <form method="post" id="rf-suppr-{{ $niveau->id_niveau }}-{{ $matiere->id_cours }}"
+                              action="{{ route('referentiel.niveaux.matieres.destroy', [$niveau, $matiere->id_cours]) }}"
+                              class="rf-suppr"
+                              onsubmit="return confirm('Retirer « {{ $matiere->nom_cours }} » du référentiel de {{ $niveau->nom_niveau }} ?\n\nLes notes déjà saisies dans cette matière ne sont pas supprimées, mais elle ne comptera plus dans la moyenne.')">
+                            @csrf
+                            @method('DELETE')
+                        </form>
+                    @endforeach
+                @endif
+
+                {{-- ---------- Ajout d'une matière à ce niveau ---------- --}}
+                <form method="post" action="{{ route('referentiel.niveaux.matieres.store', $niveau) }}"
+                      class="rf-ajout" data-ajout="{{ $niveau->id_niveau }}" @if($lignes->isNotEmpty()) hidden @endif>
+                    @csrf
+                    @if ($dispo->isEmpty())
+                        <p class="rf-ajout-vide">Toutes les matières du catalogue sont déjà rattachées à ce niveau.</p>
+                    @else
+                        <div class="rf-ajout-grid">
+                            <label class="rf-champ rf-champ-large">
+                                <span>Matière</span>
+                                <select name="id_cours" required>
+                                    @foreach ($dispo as $matiere)
+                                        <option value="{{ $matiere->id_cours }}">{{ $matiere->nom_cours }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="rf-champ">
+                                <span>Coefficient</span>
+                                <input type="number" step="0.5" min="0.5" max="20" name="coefficient" value="1" required>
+                            </label>
+                            <label class="rf-champ">
+                                <span>Heures / semaine</span>
+                                <input type="number" step="0.5" min="0" max="60" name="volume_horaire" value="0">
+                            </label>
+                            <div class="rf-ajout-actions">
+                                @if ($lignes->isNotEmpty())
+                                    <button type="button" class="btn btn-ghost" data-fermer-ajout="{{ $niveau->id_niveau }}">Annuler</button>
+                                @endif
+                                <button type="submit" class="btn">Ajouter</button>
+                            </div>
+                        </div>
                     @endif
-                </tbody>
-            </table>
-        </div>
+                </form>
+            </div>
+        </details>
+    @endforeach
+@empty
+    <div class="rf-aucun">
+        @include('partials.icon', ['n' => 'book', 's' => 28, 'c' => '#c9cdd9', 'w' => 1.6])
+        <p>Aucun niveau ne correspond à ces filtres</p>
+        <span>Élargissez la recherche, ou créez les niveaux depuis « Niveaux &amp; cycles ».</span>
+        <a href="{{ route('referentiel.ref.index') }}">Réinitialiser les filtres</a>
+    </div>
+@endforelse
 
-        {{-- ---------- Ajout d'une ligne ---------- --}}
-        <div class="add-foot">
-            <button type="button" class="add-trigger" data-toggle-add aria-expanded="false">
-                @include('partials.icon', ['n' => 'plus', 's' => 15, 'w' => 2.2])Ajouter une ligne — {{ $onglet === 'classe' ? 'par classe' : 'par niveau' }}
+{{-- ---------- Recopier un référentiel ---------- --}}
+<div class="rf-modal" data-modal hidden>
+    <div class="rf-modal-fond" data-fermer></div>
+    <form method="post" action="{{ route('referentiel.ref.dupliquer') }}" class="rf-modal-boite" role="dialog" aria-modal="true" aria-labelledby="rf-modal-titre">
+        @csrf
+        <input type="hidden" name="source" data-source value="">
+
+        <div class="rf-modal-tete">
+            <div>
+                <h2 id="rf-modal-titre">Recopier un référentiel</h2>
+                <p class="rf-modal-sub">Depuis <strong data-nom-source>—</strong> vers les niveaux cochés.</p>
+            </div>
+            <button type="button" class="rf-modal-x" data-fermer aria-label="Fermer">
+                @include('partials.icon', ['n' => 'close', 's' => 15, 'c' => '#585e72', 'w' => 2.2])
             </button>
         </div>
 
-        <form method="post"
-              action="{{ $onglet === 'classe' ? route('referentiel.ref.classe.store') : route('referentiel.ref.niveau.store') }}"
-              class="add-panel" hidden>
-            @csrf
-            <input type="hidden" name="id_etablissement" value="{{ $idEtablissement }}">
-            <input type="hidden" name="id_unite_enseignement" value="{{ $idUe }}">
-            <input type="hidden" name="annee" value="{{ $onglet === 'classe' ? (int) $annee : $annee }}">
-
-            <div class="add-head">
-                <strong>Ajouter une ligne — {{ $onglet === 'classe' ? 'par classe' : 'par niveau' }}</strong>
-                <span class="add-context">{{ $contexte }}</span>
-                <button type="button" class="row-btn" data-toggle-add aria-label="Fermer">
-                    @include('partials.icon', ['n' => 'plus', 's' => 14, 'c' => '#585e72', 'w' => 2.4, 'style' => 'transform:rotate(45deg)'])
-                </button>
-            </div>
-
-            <div class="add-grid">
-                <label>
-                    <span>Niveau</span>
-                    <select name="id_niveau" required>
-                        @foreach ($niveaux as $niveau)
-                            <option value="{{ $niveau->id_niveau }}">{{ $niveau->nom_niveau }}</option>
+        <div class="rf-modal-corps">
+            <span class="rf-label">Niveaux de destination</span>
+            @foreach ($niveauxTous as $nomCycle => $niveauxDuCycle)
+                <div class="rf-groupe">
+                    <span class="rf-groupe-nom">{{ $nomCycle }}</span>
+                    <div class="rf-cases">
+                        @foreach ($niveauxDuCycle as $niveau)
+                            <label class="rf-case" data-case="{{ $niveau->id_niveau }}">
+                                <input type="checkbox" name="cibles[]" value="{{ $niveau->id_niveau }}">
+                                <span>{{ $niveau->nom_niveau }}</span>
+                            </label>
                         @endforeach
-                    </select>
-                </label>
-
-                @if ($onglet === 'classe')
-                    <label>
-                        <span>Classe</span>
-                        <select name="id_classe" required>
-                            @foreach ($classes as $classe)
-                                <option value="{{ $classe->id_classe }}">{{ $classe->classe }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                @endif
-
-                <label>
-                    <span>Semestre</span>
-                    <select name="semestre" required>
-                        <option value="s1">S1</option>
-                        <option value="s2">S2</option>
-                    </select>
-                </label>
-
-                <label>
-                    <span>Cours</span>
-                    <select name="id_cours" required>
-                        @foreach ($cours as $c)
-                            <option value="{{ $c->id_cours }}">{{ $c->nom_cours }}</option>
-                        @endforeach
-                    </select>
-                </label>
-
-                <label>
-                    <span>Intervenant</span>
-                    <select name="id_intervenant" required>
-                        @foreach ($intervenants as $intervenant)
-                            <option value="{{ $intervenant->id_intervenant }}">{{ $intervenant->nom }} {{ $intervenant->prenom }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            </div>
-
-            <div class="add-numbers">
-                @foreach (['cc' => 'CC', 'cr' => 'CR', 'td' => 'TD', 'ei' => 'EI', 'volume' => 'Volume', 'ects' => 'ECTS'] as $champ => $libelle)
-                    <label>
-                        <span>{{ $libelle }}</span>
-                        <input type="number" step="0.01" name="{{ $champ }}" value="0">
-                    </label>
-                @endforeach
-                <div class="add-actions">
-                    <button type="button" class="btn btn-ghost" data-toggle-add>Annuler</button>
-                    <button type="submit" class="btn">Ajouter la ligne</button>
+                    </div>
                 </div>
-            </div>
-        </form>
-    </div>
+            @endforeach
 
-    <p class="legend">CC cours magistral · CR cours renforcé · TD travaux dirigés · EI enseignement individualisé</p>
-@endif
+            <span class="rf-label rf-label-2">Que faire des matières déjà présentes ?</span>
+            <label class="rf-mode">
+                <input type="radio" name="mode" value="completer" checked>
+                <span>
+                    <strong>Compléter</strong>
+                    Ajoute les matières manquantes et laisse intacts les coefficients déjà réglés.
+                </span>
+            </label>
+            <label class="rf-mode">
+                <input type="radio" name="mode" value="remplacer">
+                <span>
+                    <strong>Remplacer</strong>
+                    Aligne exactement le niveau cible sur la source : les matières absentes de la source en sont retirées.
+                </span>
+            </label>
+        </div>
+
+        <div class="rf-modal-pied">
+            <button type="button" class="btn btn-ghost" data-fermer>Annuler</button>
+            <button type="submit" class="btn">Recopier</button>
+        </div>
+    </form>
+</div>
 
 <style>
-    /* Référentiel : styles spécifiques (le reste vient de layouts/app.blade.php) */
-    .ctx-card { max-width: none; background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-    .ctx-row { display: flex; gap: 11px; flex-wrap: wrap; align-items: flex-end; }
-    .ctx-row label { flex: 1 1 230px; min-width: 0; margin: 0; }
-    .ctx-row label.ctx-wide { flex: 1 1 280px; }
-    .ctx-row label.ctx-narrow { flex: 0 1 160px; min-width: 130px; }
-    .ctx-row label > span { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-    .ctx-row select, .ctx-row input { width: 100%; max-width: none; }
-    .ctx-row .btn { flex-shrink: 0; }
+    /* Référentiel pédagogique : une fiche dépliable par niveau, sa grille
+       horaire éditable d'un bloc. Le reste vient de layouts/app.blade.php. */
+    .rf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .rf-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; padding: 13px 15px; }
+    .rf-stat.is-brand { background: #fafbff; border-color: #dfe2fb; }
+    .rf-stat.is-alerte { background: #fffaf3; border-color: #fbe3c2; }
+    .rf-stat-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .rf-stat-value { display: block; margin-top: 5px; font-size: 24px; font-weight: 700; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+    .rf-stat-sur { font-size: 15px; font-weight: 600; color: var(--faint); }
+    .rf-stat-hint { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+    .rf-stat.is-brand .rf-stat-value { color: var(--brand-deep); }
+    .rf-stat.is-alerte .rf-stat-value { color: #b45309; }
 
-    .ctx-totals { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-soft); }
-    .ctx-total { flex: 1 1 130px; min-width: 0; border: 1px solid #eef0f5; border-radius: 11px; padding: 10px 12px; }
-    .ctx-total.is-brand { background: #fafbff; }
-    .ctx-total-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-    .ctx-total-value { display: block; margin-top: 4px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-    .ctx-total-hint { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); }
+    .rf-filtres { max-width: none; background: var(--surface); border: 1px solid var(--border); border-radius: 13px; padding: 13px 14px; margin-bottom: 18px; }
+    .rf-cycles { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
+    .rf-cycle { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); font-size: 12.5px; font-weight: 600; color: #585e72; }
+    .rf-cycle:hover { border-color: #c3c6f5; color: var(--brand); }
+    .rf-cycle.is-active { border-color: var(--brand); background: var(--brand-light); color: var(--brand-deep); }
+    .rf-recherche { display: flex; gap: 11px; flex-wrap: wrap; align-items: flex-end; }
+    .rf-champ { flex: 0 1 200px; min-width: 150px; margin: 0; }
+    .rf-champ-large { flex: 1 1 240px; }
+    .rf-champ > span { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+    .rf-champ input, .rf-champ select { width: 100%; max-width: none; }
+    .rf-recherche .btn { flex-shrink: 0; }
 
-    .tabs { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 11px; padding: 4px; margin-bottom: 14px; width: fit-content; }
-    .tab { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
-    .tab:hover { color: var(--ink); background: #f7f8fc; }
-    .tab.is-active { background: var(--brand-light); color: var(--brand-deep); }
-    .tab-badge { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #f0f1f6; color: var(--muted); }
-    .tab.is-active .tab-badge { background: #fff; color: var(--brand-deep); }
+    .rf-cycle-tete { display: flex; align-items: baseline; gap: 10px; margin: 22px 2px 10px; }
+    .rf-cycle-tete h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    .rf-cycle-tete span { font-size: 12px; color: var(--faint); }
 
-    .table-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-    .table-head { display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
-    .table-count { font-size: 12.5px; color: var(--muted); }
-    .seg { display: flex; gap: 5px; margin-left: auto; }
-    .seg-item { padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--muted); font-size: 12.5px; font-weight: 600; }
-    .seg-item:hover { border-color: #c3c6f5; color: var(--brand); }
-    .seg-item.is-active { border-color: #c3c6f5; background: var(--brand-light); color: var(--brand-deep); }
-
-    .table-scroll { overflow-x: auto; }
-    .data-table { min-width: 1020px; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
-    .data-table th { position: sticky; top: 0; z-index: 1; white-space: nowrap; }
-    .data-table th.num, .data-table td.num { text-align: right; }
-    .data-table td.num { font-variant-numeric: tabular-nums; color: #585e72; white-space: nowrap; }
-    .data-table td.num.strong { font-weight: 700; color: var(--ink); }
-    .data-table td { vertical-align: middle; }
-    .nowrap { white-space: nowrap; }
-    .cell-course { max-width: 280px; font-weight: 500; }
-    .col-actions { width: 56px; text-align: right; }
-    .col-actions form { display: inline-block; margin: 0; }
-    .row-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; padding: 0; }
-    .row-btn:hover { border-color: #c3c6f5; background: #fafbff; }
-    .row-btn.is-danger:hover { border-color: #fecaca; background: var(--danger-bg); }
-
-    .cell-user { display: flex; align-items: center; gap: 9px; }
-    .cell-avatar.is-small { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; background: var(--brand-light); color: var(--brand-deep); font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-
-    .tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: #eef1f6; color: #475569; font-size: 11.5px; font-weight: 700; }
-    .tag-violet { background: #f4ecfd; color: #6d28d9; font-weight: 600; }
-    .pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .pill-brand { background: var(--brand-light); color: var(--brand-deep); }
-    .pill-solid { background: var(--brand); color: #fff; }
-
-    .group-row td { background: #fafbfd; border-bottom: 1px solid #eef0f5; padding: 7px 14px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-    .group-sub { margin-left: 8px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--faint); }
-    .total-row td { border-top: 1px solid var(--border); border-bottom: 0; padding: 12px 14px; font-size: 13px; font-weight: 700; color: var(--ink); }
-    .total-row td:first-child { font-size: 12.5px; }
-
-    .empty-state { text-align: center; padding: 52px 16px; }
-    .empty-state p { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
-    .empty-cell { text-align: center; padding: 42px 16px; }
-    .empty-cell span { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
-
-    .add-foot { border-top: 1px solid var(--border-soft); padding: 12px 15px; }
-    .add-trigger {
-        display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 9px;
-        border: 1px dashed #c9cdd9; background: #fff; color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    .rf-niveau { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; margin-bottom: 10px; overflow: hidden; }
+    .rf-niveau[open] { border-color: #dfe2fb; box-shadow: var(--shadow-sm); }
+    .rf-niveau-tete { display: flex; align-items: center; gap: 13px; padding: 13px 15px; cursor: pointer; list-style: none; }
+    .rf-niveau-tete::-webkit-details-marker { display: none; }
+    .rf-niveau-tete:hover { background: #fafbfd; }
+    .rf-niveau[open] .rf-niveau-tete { border-bottom: 1px solid var(--border-soft); }
+    .rf-niveau[open] .rf-chevron { transform: rotate(180deg); }
+    .rf-chevron { display: inline-flex; flex-shrink: 0; transition: transform .15s ease; }
+    .rf-code {
+        flex-shrink: 0; min-width: 52px; padding: 5px 9px; border-radius: 8px; text-align: center;
+        background: var(--brand-light); color: var(--brand-deep); font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
     }
-    .add-trigger:hover { border-color: #a5a8f0; background: #fafbff; }
-    .add-trigger svg { stroke: currentColor; }
+    .rf-niveau-id { min-width: 0; margin-right: auto; }
+    .rf-niveau-nom { display: block; font-size: 14.5px; font-weight: 700; letter-spacing: -.015em; }
+    .rf-niveau-sub { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    .rf-resume { display: flex; gap: 16px; flex-wrap: wrap; }
+    .rf-mesure { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .rf-mesure strong { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .rf-mesure-h strong { color: var(--brand-deep); }
 
-    .add-panel { max-width: none; border-top: 1px solid var(--border); background: #fbfbff; padding: 15px; }
-    .add-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
-    .add-head strong { font-size: 13px; }
-    .add-context { font-size: 12px; color: var(--muted); }
-    .add-head .row-btn { margin-left: auto; }
-    .add-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 11px; }
-    .add-grid label, .add-numbers label { margin: 0; min-width: 0; }
-    .add-grid label > span, .add-numbers label > span { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-    .add-grid select { width: 100%; max-width: none; }
-    .add-numbers { display: flex; gap: 11px; flex-wrap: wrap; align-items: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eef0f5; }
-    .add-numbers label { flex: 0 1 92px; min-width: 80px; }
-    .add-numbers input { width: 100%; max-width: none; text-align: right; font-variant-numeric: tabular-nums; }
-    .add-actions { display: flex; gap: 8px; margin-left: auto; }
+    /* `layouts/app.blade.php` borne les formulaires à 620 px (formulaires de
+       saisie) : une grille horaire, elle, occupe toute la fiche. */
+    .rf-niveau-corps { padding: 0; }
+    .rf-niveau-corps form { max-width: none; margin: 0; }
+    .rf-scroll { overflow-x: auto; }
+    .rf-table { width: 100%; min-width: 660px; margin: 0; border: 0; border-radius: 0; box-shadow: none; border-collapse: collapse; }
+    .rf-table th {
+        padding: 9px 14px; text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+        text-transform: uppercase; color: var(--muted); background: #fafbfd; border-bottom: 1px solid var(--border-soft); white-space: nowrap;
+    }
+    .rf-table td { padding: 8px 14px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; font-size: 13.5px; }
+    .rf-table tbody tr:last-child td { border-bottom: 0; }
+    .rf-matiere { font-weight: 600; }
+    .rf-col-rang { width: 74px; }
+    .rf-col-num { width: 128px; text-align: right; }
+    .rf-col-part { width: 168px; }
+    .rf-col-act { width: 56px; text-align: right; }
+    .rf-table input.rf-num, .rf-table input.rf-mini {
+        max-width: none; margin: 0; padding: 6px 9px; text-align: right;
+        font-size: 13px; font-variant-numeric: tabular-nums;
+    }
+    .rf-table input.rf-num { width: 96px; }
+    .rf-table input.rf-mini { width: 58px; color: var(--muted); }
+    .rf-table tfoot td {
+        padding: 11px 14px; border-top: 1px solid var(--border); border-bottom: 0;
+        font-size: 12.5px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    /* Le total tombe sous les chiffres saisis : l'input a sa propre marge
+       intérieure, la cellule du pied doit la compenser. */
+    .rf-table tfoot td.rf-col-num { padding-right: 23px; }
+    .rf-table .row-btn.is-danger:hover { border-color: #fecaca; background: var(--danger-bg); }
+    .rf-jauge { display: block; height: 5px; border-radius: 999px; background: #eef0f5; overflow: hidden; }
+    .rf-jauge > span { display: block; height: 100%; border-radius: 999px; background: var(--brand); }
+    .rf-part { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-    .legend { margin: 14px 2px 0; font-size: 12px; color: var(--muted); }
+    .rf-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 12px 15px; border-top: 1px solid var(--border-soft); background: #fcfcfe; }
+    .rf-actions .btn:last-child { margin-left: auto; }
+    .rf-ajout-btn {
+        display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 9px;
+        border: 1px dashed #c9cdd9; background: #fff; color: var(--brand); font-family: inherit;
+        font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .rf-ajout-btn:hover { border-color: #a5a8f0; background: #fafbff; }
+    .rf-ajout-btn svg { stroke: currentColor; }
+    .rf-dirty { font-size: 12px; font-weight: 600; color: #b45309; }
+    .rf-dirty[hidden] { display: none; }
+
+    .rf-ajout { max-width: none; margin: 0; padding: 14px 15px; border-top: 1px solid var(--border-soft); background: #fbfbff; }
+    .rf-ajout[hidden] { display: none; }
+    .rf-ajout-grid { display: flex; gap: 11px; flex-wrap: wrap; align-items: flex-end; }
+    .rf-ajout-actions { display: flex; gap: 8px; margin-left: auto; }
+    .rf-ajout-vide { margin: 0; font-size: 12.5px; color: var(--muted); }
+    .rf-suppr { display: none; }
+
+    .rf-vide { text-align: center; padding: 34px 16px; }
+    .rf-vide p { margin: 9px 0 0; font-size: 13.5px; font-weight: 600; }
+    .rf-vide span { display: block; margin: 3px auto 0; max-width: 52ch; font-size: 12.5px; color: var(--muted); }
+
+    .rf-aucun { text-align: center; padding: 48px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+    .rf-aucun p { margin: 12px 0 0; font-size: 14px; font-weight: 600; }
+    .rf-aucun span { display: block; margin: 4px auto 0; max-width: 54ch; font-size: 13px; color: var(--muted); }
+    .rf-aucun a { display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 600; }
+
+    /* Modale de recopie. `hidden` doit primer sur `display:flex`. */
+    .rf-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .rf-modal[hidden] { display: none; }
+    .rf-modal-fond { position: absolute; inset: 0; background: rgba(15, 18, 34, .45); }
+    .rf-modal-boite {
+        position: relative; max-width: 620px; width: 100%; max-height: 88vh; overflow-y: auto; margin: 0;
+        background: #fff; border-radius: 16px; box-shadow: var(--shadow-lg);
+    }
+    .rf-modal-tete { display: flex; align-items: flex-start; gap: 12px; padding: 17px 18px 14px; border-bottom: 1px solid var(--border-soft); }
+    .rf-modal-tete h2 { margin: 0; font-size: 16.5px; letter-spacing: -.02em; }
+    .rf-modal-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); }
+    .rf-modal-x {
+        margin-left: auto; flex-shrink: 0; width: 30px; height: 30px; padding: 0; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--border); border-radius: 9px; background: #fff;
+    }
+    .rf-modal-x:hover { border-color: #c3c6f5; }
+    .rf-modal-corps { padding: 16px 18px; }
+    .rf-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .rf-label-2 { margin-top: 18px; }
+    .rf-groupe + .rf-groupe { margin-top: 11px; }
+    .rf-groupe[hidden] { display: none; }
+    .rf-groupe-nom { display: block; font-size: 11.5px; font-weight: 600; color: var(--faint); margin-bottom: 6px; }
+    .rf-cases { display: flex; flex-wrap: wrap; gap: 7px; }
+    .rf-case {
+        display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 6px 12px;
+        border: 1px solid var(--border); border-radius: 999px; background: #fff;
+        font-size: 12.5px; font-weight: 600; color: #585e72; cursor: pointer;
+    }
+    .rf-case:hover { border-color: #c3c6f5; }
+    .rf-case input { width: 14px; height: 14px; max-width: none; margin: 0; accent-color: var(--brand); cursor: pointer; }
+    .rf-case:has(input:checked) { border-color: var(--brand); background: var(--brand-light); color: var(--brand-deep); }
+    .rf-case[hidden] { display: none; }
+    .rf-mode { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 8px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer; }
+    .rf-mode:has(input:checked) { border-color: var(--brand); background: #fafbff; }
+    .rf-mode input { width: 15px; height: 15px; max-width: none; margin: 2px 0 0; accent-color: var(--brand); flex-shrink: 0; }
+    .rf-mode strong { display: block; font-size: 13px; margin-bottom: 2px; }
+    .rf-mode span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .rf-modal-pied { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border-soft); }
+    .rf-modal-pied .btn:last-child { margin-left: auto; }
+
+    @media (max-width: 760px) {
+        .rf-resume { display: none; }
+        .rf-actions .btn:last-child { margin-left: 0; width: 100%; }
+    }
 </style>
 
 <script>
     (function () {
-        var panel = document.querySelector('.add-panel');
-        var foot = document.querySelector('.add-foot');
-        if (!panel) return;
-        document.querySelectorAll('[data-toggle-add]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                panel.hidden = !panel.hidden;
-                if (foot) foot.hidden = !panel.hidden;
+        // Ajout d'une matière : le panneau reste replié tant qu'on ne le demande pas.
+        function panneau(id) { return document.querySelector('[data-ajout="' + id + '"]'); }
+
+        document.querySelectorAll('[data-ouvrir-ajout]').forEach(function (bouton) {
+            bouton.addEventListener('click', function () {
+                var cible = panneau(bouton.dataset.ouvrirAjout);
+                if (!cible) return;
+                cible.hidden = false;
+                var champ = cible.querySelector('select, input');
+                if (champ) champ.focus();
             });
+        });
+
+        document.querySelectorAll('[data-fermer-ajout]').forEach(function (bouton) {
+            bouton.addEventListener('click', function () {
+                var cible = panneau(bouton.dataset.fermerAjout);
+                if (cible) cible.hidden = true;
+            });
+        });
+
+        // Une grille se règle champ par champ : sans repère, on quitte la page
+        // en croyant avoir enregistré.
+        document.querySelectorAll('[data-grille]').forEach(function (form) {
+            var temoin = form.querySelector('[data-dirty]');
+            form.addEventListener('input', function () { if (temoin) temoin.hidden = false; });
+        });
+
+        // ---- Recopie d'un référentiel ----
+        var modal = document.querySelector('[data-modal]');
+        if (!modal) return;
+
+        var source = modal.querySelector('[data-source]');
+        var nomSource = modal.querySelector('[data-nom-source]');
+
+        function ouvrir(id, nom) {
+            source.value = id;
+            nomSource.textContent = nom;
+
+            // Le niveau source ne peut pas être sa propre destination.
+            modal.querySelectorAll('[data-case]').forEach(function (etiquette) {
+                var estSource = etiquette.dataset.case === String(id);
+                etiquette.hidden = estSource;
+                if (estSource) etiquette.querySelector('input').checked = false;
+            });
+
+            // Un cycle d'un seul niveau, celui-là même qu'on recopie, ne doit
+            // pas laisser un intitulé au-dessus d'une liste vide.
+            modal.querySelectorAll('.rf-groupe').forEach(function (groupe) {
+                groupe.hidden = !groupe.querySelector('[data-case]:not([hidden])');
+            });
+
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function fermer() {
+            modal.hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('[data-dupliquer]').forEach(function (bouton) {
+            bouton.addEventListener('click', function () { ouvrir(bouton.dataset.dupliquer, bouton.dataset.nom); });
+        });
+
+        modal.querySelectorAll('[data-fermer]').forEach(function (element) {
+            element.addEventListener('click', fermer);
+        });
+
+        document.addEventListener('keydown', function (evenement) {
+            if (evenement.key === 'Escape' && !modal.hidden) fermer();
         });
     })();
 </script>
