@@ -442,6 +442,26 @@
         button.row-btn:hover { background: #fafbff; box-shadow: none; }
         .row-btn:hover { border-color: #c3c6f5; background: #fafbff; }
 
+        /* Même piège que `row-btn`, une ligne plus haut : `button[type=submit]`
+           (0,1,1) l'emporte sur `.btn-ghost` (0,1,0), et un bouton secondaire —
+           « Exporter », « Supprimer ce panneau » — s'affichait en gros bouton
+           indigo au lieu du bouton discret attendu. */
+        button.btn-ghost, input[type="submit"].btn-ghost {
+            background: #fff; color: #585e72 !important; border: 1px solid var(--border); box-shadow: none;
+        }
+        button.btn-ghost:hover, input[type="submit"].btn-ghost:hover {
+            background: #f7f8fc; color: var(--ink) !important; box-shadow: none;
+        }
+
+        /* Action destructrice secondaire : bouton discret, mais rouge. Le
+           `!important` du fond `.btn-ghost` impose la même arme ici. */
+        .btn-ghost.is-danger {
+            color: var(--danger) !important; border-color: #fecaca;
+            display: inline-flex; align-items: center; gap: 7px;
+        }
+        .btn-ghost.is-danger:hover { background: var(--danger-bg) !important; color: var(--danger-dark) !important; }
+        .btn-ghost.is-danger svg { stroke: currentColor; }
+
         .cell-user { display: flex; align-items: center; gap: 11px; }
         .cell-avatar {
             width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: var(--brand-light);

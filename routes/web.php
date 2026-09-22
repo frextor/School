@@ -413,6 +413,10 @@ Route::middleware('auth:admin')->group(function () {
             ->parameters(['types-piece' => 'type']);
 
         Route::resource('signatures', SignatureController::class)->except('show');
+        // Désigner la signature qui sera apposée par défaut sur les documents
+        // d'un établissement, sans passer par l'écran de modification.
+        Route::post('signatures/{signature}/principale', [SignatureController::class, 'principale'])
+            ->name('signatures.principale');
 
         Route::resource('periodes-formation', PeriodeFormationController::class)->except('show');
 

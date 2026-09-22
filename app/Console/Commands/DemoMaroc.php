@@ -18,6 +18,7 @@ use App\Models\Niveau;
 use App\Models\NiveauxOptions;
 use App\Models\Note;
 use App\Models\PanneauLumineux;
+use App\Models\Signature;
 use App\Models\ObjetPaiement;
 use App\Models\ResultatEpreuveEleve;
 use App\Models\Salle;
@@ -28,6 +29,7 @@ use Database\Seeders\ReferentielMarocSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Jeu de données de démonstration : une école marocaine complète.
@@ -50,6 +52,9 @@ class DemoMaroc extends Command
 
     /** Identifiant du panneau de couloir créé par la démo. */
     private const PANNEAU = 'HALL-01';
+
+    /** Signataire des documents créé par la démo. */
+    private const DIRECTEUR = 'Abdelilah CHRAIBI';
     protected $description = 'Crée (ou retire) un jeu de données de démonstration d\'école marocaine';
 
     private const ECOLE = 'Groupe Scolaire Al Amal (démo)';
@@ -117,6 +122,7 @@ class DemoMaroc extends Command
             $this->notes($ecole, $classes, $eleves);
             $this->emploiDuTemps($ecole, $classes, $enseignants, $salles);
             $this->panneau($ecole, $classes);
+            $this->signature($ecole);
             $this->admissions($classes);
             $this->prospects();
 
@@ -489,6 +495,53 @@ class DemoMaroc extends Command
 
     /** Quelques candidats et une épreuve d'admission à venir, avec des résultats déjà saisis. */
     /**
+     * Le signataire des documents de l'école, avec une signature dessinée.
+     *
+     * L'écran des signatures tourne autour d'une image : sans fichier, la
+     * démonstration n'en montrerait que l'état vide.
+     */
+    private function signature(Etablissement $ecole): void
+    {
+        $fichier = 'demo-'.$ecole->id_etablissement.'.png';
+
+        if (! Storage::disk('public')->exists('signatures/'.$fichier)) {
+            Storage::disk('public')->put('signatures/'.$fichier, $this->traceSignature());
+        }
+
+        Signature::updateOrCreate(
+            ['nom_directeur' => self::DIRECTEUR, 'id_etablissement' => $ecole->id_etablissement],
+            [
+                'civilite' => 'M',
+                'fonction' => 'Directeur',
+                'signature' => $fichier,
+                'principal' => true,
+                'date_creation' => now(),
+                'date_modification' => now(),
+            ]
+        );
+    }
+
+    /** Un paraphe manuscrit approximé par une courbe : suffit à juger le rendu. */
+    private function traceSignature(): string
+    {
+        $image = imagecreatetruecolor(320, 110);
+        imagesavealpha($image, true);
+        imagefill($image, 0, 0, imagecolorallocatealpha($image, 255, 255, 255, 127));
+        $encre = imagecolorallocate($image, 20, 30, 70);
+
+        for ($x = 20; $x < 300; $x += 2) {
+            $y = (int) (70 - 26 * sin($x / 17) - 10 * sin($x / 5));
+            imagefilledellipse($image, $x, $y, 3, 3, $encre);
+        }
+
+        ob_start();
+        imagepng($image);
+        imagedestroy($image);
+
+        return (string) ob_get_clean();
+    }
+
+    /**
      * Un panneau de couloir sur le hall : la démo doit montrer l'écran
      * d'affichage, pas seulement sa configuration.
      */
@@ -591,6 +644,13 @@ class DemoMaroc extends Command
             SnTypeEvaluation::where('id_etablissement', $ecole->id_etablissement)->delete();
             ActiviteIntervenant::where('id_etablissement', $ecole->id_etablissement)->delete();
             PanneauLumineux::where('identifiant_panneaux', self::PANNEAU)->delete();
+
+            foreach (Signature::where('nom_directeur', self::DIRECTEUR)->get() as $signature) {
+                if ($chemin = $signature->cheminFichier()) {
+                    Storage::disk('public')->delete($chemin);
+                }
+                $signature->delete();
+            }
             Salle::where('id_etablissement', $ecole->id_etablissement)->delete();
             Intervenant::where('email', 'like', 'demo.prof%'.self::DOMAINE)->delete();
 

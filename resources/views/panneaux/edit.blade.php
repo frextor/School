@@ -60,7 +60,7 @@
       onsubmit="return confirm('Supprimer le panneau « {{ $panneau->titre }} » ?')">
     @csrf
     @method('DELETE')
-    <button type="submit" class="btn btn-ghost pn-danger">
+    <button type="submit" class="btn btn-ghost is-danger">
         @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer ce panneau
     </button>
 </form>
@@ -80,9 +80,6 @@
     .pn-url-aide { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
 
     .pn-suppr-bloc { max-width: 920px; margin: 18px 0 0; }
-    .pn-danger { color: var(--danger); border-color: #fecaca; display: inline-flex; align-items: center; gap: 7px; }
-    .pn-danger:hover { background: var(--danger-bg); }
-    .pn-danger svg { stroke: var(--danger); }
 </style>
 
 <script>

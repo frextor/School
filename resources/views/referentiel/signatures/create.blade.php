@@ -3,44 +3,34 @@
 @section('title', 'Nouvelle signature')
 
 @section('content')
-    <a href="{{ route('referentiel.signatures.index') }}">&larr; Retour</a>
-    <h1>Nouvelle signature</h1>
+<div class="crumb">
+    <a href="{{ route('referentiel.signatures.index') }}">Signatures</a>
+    <span class="sep">/</span>
+    <span class="current">Nouvelle signature</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $erreur){{ $erreur }} @endforeach</span>
+    </div>
+@endif
 
-    <form method="post" action="{{ route('referentiel.signatures.store') }}" enctype="multipart/form-data">
-        @csrf
+<div class="page-head">
+    <div>
+        <h1>Nouvelle signature</h1>
+        <p class="page-sub">Le signataire des documents officiels d'un établissement, et sa signature scannée.</p>
+    </div>
+</div>
 
-        <label for="civilite">Civilité</label>
-        <select name="civilite" id="civilite" required>
-            <option value="M" @selected(old('civilite') === 'M')>M</option>
-            <option value="Mme" @selected(old('civilite') === 'Mme')>Mme</option>
-        </select>
+<form method="post" action="{{ route('referentiel.signatures.store') }}" enctype="multipart/form-data" class="sg-form-page">
+    @csrf
 
-        <label for="nom_directeur">Nom du directeur</label>
-        <input type="text" name="nom_directeur" id="nom_directeur" value="{{ old('nom_directeur') }}" required>
+    @include('referentiel.signatures._form', ['signature' => $signature])
 
-        <label for="fonction">Fonction</label>
-        <input type="text" name="fonction" id="fonction" value="{{ old('fonction') }}" required>
-
-        <label for="id_etablissement">Établissement</label>
-        <select name="id_etablissement" id="id_etablissement" required>
-            @foreach ($etablissements as $etablissement)
-                <option value="{{ $etablissement->id_etablissement }}" @selected(old('id_etablissement') == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
-            @endforeach
-        </select>
-
-        <label for="signature">Image de la signature (jpg)</label>
-        <input type="file" name="signature" id="signature">
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Créer</button>
-        </p>
-    </form>
+    <div class="sg-pied">
+        <a href="{{ route('referentiel.signatures.index') }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn">Créer la signature</button>
+    </div>
+</form>
 @endsection

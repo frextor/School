@@ -1,55 +1,59 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier signature')
+@section('title', 'Signature · '.$signature->nom_directeur)
 
 @section('content')
-    <a href="{{ route('referentiel.signatures.index') }}">&larr; Retour</a>
-    <h1>Modifier la signature de {{ $signature->nom_directeur }}</h1>
+<div class="crumb">
+    <a href="{{ route('referentiel.signatures.index') }}">Signatures</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $signature->nom_directeur }}</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+@if (session('status'))
+    <div class="status">{{ session('status') }}</div>
+@endif
+
+@if ($errors->any())
+    <div class="status error">
+        @include('partials.icon', ['n' => 'alert', 's' => 15, 'w' => 2.2])
+        <span>@foreach ($errors->all() as $erreur){{ $erreur }} @endforeach</span>
+    </div>
+@endif
+
+<div class="page-head">
+    <div>
+        <div class="title-row">
+            <h1>{{ $signature->civilite === 'M' ? 'M.' : $signature->civilite }} {{ $signature->nom_directeur }}</h1>
+            @if ($signature->principal)
+                <span class="badge badge-brand">Signature principale</span>
+            @endif
         </div>
-    @endif
+        <p class="page-sub">{{ $signature->fonction }} · {{ $signature->etablissement?->nom_etablissement ?: 'Établissement non précisé' }}</p>
+    </div>
+</div>
 
-    @if ($signature->cheminFichier())
-        <p><img src="{{ Storage::disk('public')->url($signature->cheminFichier()) }}" style="max-height:80px"></p>
-    @endif
+<form method="post" action="{{ route('referentiel.signatures.update', $signature) }}" enctype="multipart/form-data" class="sg-form-page">
+    @csrf
+    @method('PUT')
 
-    <form method="post" action="{{ route('referentiel.signatures.update', $signature) }}" enctype="multipart/form-data">
-        @csrf
-        @method('PUT')
+    @include('referentiel.signatures._form', ['signature' => $signature])
 
-        <label for="civilite">Civilité</label>
-        <select name="civilite" id="civilite" required>
-            <option value="M" @selected(old('civilite', $signature->civilite) === 'M')>M</option>
-            <option value="Mme" @selected(old('civilite', $signature->civilite) === 'Mme')>Mme</option>
-        </select>
+    <div class="sg-pied">
+        <a href="{{ route('referentiel.signatures.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
 
-        <label for="nom_directeur">Nom du directeur</label>
-        <input type="text" name="nom_directeur" id="nom_directeur" value="{{ old('nom_directeur', $signature->nom_directeur) }}" required>
+<form method="post" action="{{ route('referentiel.signatures.destroy', $signature) }}" class="sg-suppr-bloc"
+      onsubmit="return confirm('Supprimer la signature de {{ $signature->nom_directeur }} ?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn btn-ghost is-danger">
+        @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer cette signature
+    </button>
+</form>
 
-        <label for="fonction">Fonction</label>
-        <input type="text" name="fonction" id="fonction" value="{{ old('fonction', $signature->fonction) }}" required>
-
-        <label for="id_etablissement">Établissement</label>
-        <select name="id_etablissement" id="id_etablissement" required>
-            @foreach ($etablissements as $etablissement)
-                <option value="{{ $etablissement->id_etablissement }}" @selected(old('id_etablissement', $signature->id_etablissement) == $etablissement->id_etablissement)>{{ $etablissement->nom_etablissement }}</option>
-            @endforeach
-        </select>
-
-        <label for="signature">Remplacer l'image de signature (jpg)</label>
-        <input type="file" name="signature" id="signature">
-
-        @if ($signature->cheminFichier())
-            <label style="font-weight:normal"><input type="checkbox" name="supprimer_signature" value="1"> Supprimer l'image actuelle</label>
-        @endif
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
-    </form>
+<style>
+    .sg-suppr-bloc { max-width: 820px; margin: 18px 0 0; }
+</style>
 @endsection

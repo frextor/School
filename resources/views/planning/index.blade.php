@@ -303,7 +303,7 @@
             <form method="post" data-suppr class="pl-modal-suppr" onsubmit="return confirm('Supprimer ce créneau ?')">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="btn btn-ghost pl-danger">
+                <button type="submit" class="btn btn-ghost is-danger">
                     @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer
                 </button>
             </form>
@@ -390,11 +390,8 @@
     .pl-form-large { margin-top: 12px !important; }
 
     .pl-modal-pied { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border-soft); background: #fafbfd; }
-    .pl-modal-pied .btn:not(.pl-danger) { margin-left: 0; }
+    .pl-modal-pied .btn:not(.is-danger) { margin-left: 0; }
     .pl-modal-suppr { display: inline-block; margin: 0 auto 0 0; }
-    .pl-danger { color: var(--danger); border-color: #fecaca; display: inline-flex; align-items: center; gap: 6px; }
-    .pl-danger:hover { background: var(--danger-bg); }
-    .pl-danger svg { stroke: var(--danger); }
 
     a.cal-event { cursor: pointer; }
 </style>
