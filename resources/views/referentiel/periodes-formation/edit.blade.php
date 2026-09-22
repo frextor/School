@@ -1,71 +1,42 @@
 @extends('layouts.app')
 
-@section('title', 'Modifier période de formation')
+@section('title', 'Période · '.$periode->periode)
 
 @section('content')
-    <a href="{{ route('referentiel.periodes-formation.index') }}">&larr; Retour</a>
-    <h1>Modifier « {{ $periode->periode }} »</h1>
+<div class="crumb">
+    <a href="{{ route('referentiel.periodes-formation.index') }}">Périodes scolaires</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $periode->periode }}</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+@include('partials.erreurs')
+
+<div class="page-head">
+    <div>
+        <div class="title-row">
+            <h1>{{ $periode->periode }}</h1>
+            <span class="badge badge-brand">{{ $periode->annee_scolaire }}</span>
         </div>
-    @endif
+        <p class="page-sub">{{ $periode->nb_heure_annuel ? $periode->nb_heure_annuel.' heures sur l\'année' : 'Volume horaire non renseigné' }}</p>
+    </div>
+</div>
 
-    <form method="post" action="{{ route('referentiel.periodes-formation.update', $periode) }}">
-        @csrf
-        @method('PUT')
+<form method="post" action="{{ route('referentiel.periodes-formation.update', $periode) }}" class="form-page">
+    @csrf
+    @method('PUT')
+    @include('referentiel.periodes-formation._form', ['periode' => $periode])
+    <div class="form-actions">
+        <a href="{{ route('referentiel.periodes-formation.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
 
-        <label for="annee_scolaire">Année scolaire</label>
-        <input type="text" name="annee_scolaire" id="annee_scolaire" value="{{ old('annee_scolaire', $periode->annee_scolaire) }}" required>
-
-        <label for="periode">Période</label>
-        <input type="text" name="periode" id="periode" value="{{ old('periode', $periode->periode) }}" required>
-
-        <label for="nb_heure_annuel">Nombre d'heures annuel</label>
-        <input type="number" step="0.01" name="nb_heure_annuel" id="nb_heure_annuel" value="{{ old('nb_heure_annuel', $periode->nb_heure_annuel) }}">
-
-        <label for="diplome_rncp">Diplôme RNCP</label>
-        <input type="text" name="diplome_rncp" id="diplome_rncp" value="{{ old('diplome_rncp', $periode->diplome_rncp) }}">
-
-        <label for="code_diplome">Code diplôme</label>
-        <input type="text" name="code_diplome" id="code_diplome" value="{{ old('code_diplome', $periode->code_diplome) }}">
-
-        @php $niveauxSelectionnes = old('id_niveau', $periode->niveaux->pluck('id_niveau')->all()); @endphp
-        <label for="id_niveau">Niveaux concernés</label>
-        <select name="id_niveau[]" id="id_niveau" multiple size="6">
-            @foreach ($niveaux as $niveau)
-                <option value="{{ $niveau->id_niveau }}" @selected(collect($niveauxSelectionnes)->contains($niveau->id_niveau))>{{ $niveau->nom_niveau }}</option>
-            @endforeach
-        </select>
-
-        @php $classesSelectionnees = old('id_classe', $periode->classes->pluck('id_classe')->all()); @endphp
-        <label for="id_classe">Classes concernées</label>
-        <select name="id_classe[]" id="id_classe" multiple size="6">
-            @foreach ($classes as $classe)
-                <option value="{{ $classe->id_classe }}" @selected(collect($classesSelectionnees)->contains($classe->id_classe))>{{ $classe->classe }}</option>
-            @endforeach
-        </select>
-
-        <label>Périodes trimestrielles (remplace les précédentes)</label>
-        <div id="trimestres">
-            @forelse ($periode->periodesTrimestrielles as $trimestre)
-                <div>
-                    <input type="text" name="periode_trimestrielle[]" value="{{ $trimestre->periode }}">
-                    <input type="number" step="0.01" name="nb_heure_trimestriel[]" value="{{ $trimestre->nb_heure }}">
-                </div>
-            @empty
-                <div>
-                    <input type="text" name="periode_trimestrielle[]" placeholder="Ex: 01/09/2025 - 31/12/2025">
-                    <input type="number" step="0.01" name="nb_heure_trimestriel[]" placeholder="Heures">
-                </div>
-            @endforelse
-        </div>
-
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
-    </form>
+<form method="post" action="{{ route('referentiel.periodes-formation.destroy', $periode) }}" class="danger-zone form-page"
+      onsubmit="return confirm('Supprimer la période « {{ $periode->periode }} » ?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn btn-ghost is-danger">
+        @include('partials.icon', ['n' => 'trash', 's' => 15, 'w' => 2])Supprimer cette période
+    </button>
+</form>
 @endsection

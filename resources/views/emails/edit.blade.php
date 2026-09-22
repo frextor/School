@@ -1,36 +1,71 @@
 @extends('layouts.app')
 
-@section('title', "Modifier modèle d'email")
+@section('title', "Modèle · ".$email->categorie)
 
 @section('content')
-    <a href="{{ route('emails.index') }}">&larr; Retour</a>
-    <h1>Modifier « {{ $email->categorie }} » ({{ $email->lang }})</h1>
+<div class="crumb">
+    <a href="{{ route('emails.index') }}">Modèles d'e-mails</a>
+    <span class="sep">/</span>
+    <span class="current">{{ $email->categorie }}</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+@include('partials.erreurs')
+
+<div class="page-head">
+    <div>
+        <div class="title-row">
+            <h1>{{ $email->categorie }}</h1>
+            <span class="badge">{{ strtoupper($email->lang) }}</span>
+            @if ($email->statut)
+                <span class="badge badge-success">Actif</span>
+            @else
+                <span class="badge">Désactivé</span>
+            @endif
         </div>
-    @endif
+        <p class="page-sub">Le message envoyé automatiquement pour cette catégorie.</p>
+    </div>
+</div>
 
-    <form method="post" action="{{ route('emails.update', $email) }}">
-        @csrf
-        @method('PUT')
+<form method="post" action="{{ route('emails.update', $email) }}" class="form-page">
+    @csrf
+    @method('PUT')
 
-        <label for="titre">Titre (interne)</label>
-        <input type="text" name="titre" id="titre" value="{{ old('titre', $email->titre) }}" required>
+    <section class="form-card">
+        <div class="form-head"><h2>Le message</h2></div>
 
-        <label for="sujet">Sujet</label>
-        <input type="text" name="sujet" id="sujet" value="{{ old('sujet', $email->sujet) }}" required>
+        <div class="form-grid">
+            <label class="field">
+                <span>Titre interne</span>
+                <input type="text" name="titre" required value="{{ old('titre', $email->titre) }}">
+                <small class="field-aide">Ne figure pas dans l'e-mail : sert à le reconnaître ici.</small>
+            </label>
 
-        <label for="message">Message</label>
-        <textarea name="message" id="message" rows="10">{{ old('message', $email->message) }}</textarea>
+            <label class="field">
+                <span>Sujet de l'e-mail</span>
+                <input type="text" name="sujet" required value="{{ old('sujet', $email->sujet) }}">
+            </label>
 
-        <label><input type="checkbox" name="statut" value="1" @checked(old('statut', $email->statut))> Actif</label>
+            <label class="field field-full">
+                <span>Corps du message</span>
+                <textarea name="message" rows="14">{{ old('message', $email->message) }}</textarea>
+                <small class="field-aide">Les variables entre accolades sont remplacées à l'envoi.</small>
+            </label>
+        </div>
 
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Enregistrer</button>
-        </p>
-    </form>
+        <div class="form-body" style="padding-top:0">
+            <label class="check-card">
+                <input type="checkbox" name="statut" value="1" @checked(old('statut', $email->statut))>
+                <span>
+                    <strong>Modèle actif</strong>
+                    Désactivé, aucun e-mail n'est envoyé pour cette catégorie — utile pour couper une relance sans perdre son texte.
+                </span>
+            </label>
+        </div>
+    </section>
+
+    <div class="form-actions">
+        <a href="{{ route('emails.index') }}" class="btn btn-ghost">Retour</a>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
 @endsection

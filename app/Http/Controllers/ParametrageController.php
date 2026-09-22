@@ -19,11 +19,10 @@ use Illuminate\View\View;
  * - Une seule page de saisie/consultation (par établissement), au lieu de
  *   trois écrans séparés (`volumes_formations`/`volumes_prof_eleve`/
  *   `volumes_profs`) chargés en AJAX avec DataTables.
- * - Les totaux Bachelor/Master sont calculés génériquement via
- *   `Formation::IDS_BACHELOR`/`IDS_MASTER` (déjà utilisées ailleurs dans le
- *   projet), au lieu de la comparaison de libellés de niveau câblés en dur
- *   et fragiles du legacy (`'Bachelor 1ère année'`, etc., avec des artefacts
- *   d'encodage dans le code source d'origine).
+ * - Les totaux sont regroupés par cycle tel que `amos_formations` le nomme
+ *   (Maternelle / Primaire / Collège / Lycée), au lieu des deux lignes
+ *   Bachelor/Master héritées du supérieur : elles restaient vides dans une
+ *   école K-12, dont aucun niveau n'appartient à ces formations.
  * - `volumes_profs_etablissement()`/`get_volumes_profs()` (croisement par
  *   intervenant, doublon du référentiel des heures déjà couvert par
  *   `Ref.php`/`ReferentielController`) ne sont pas repris.
@@ -38,23 +37,27 @@ class ParametrageController extends Controller
             session(['parametrage_etablissement' => $idEtablissement]);
         }
 
-        $niveaux = Niveau::orderBy('nom_niveau')->get();
+        // Les niveaux dans l'ordre de la scolarité, pas alphabétique.
+        $niveaux = Niveau::with('formation')->orderBy('nom_niveau')->get()
+            ->sortBy(fn (Niveau $n) => sprintf('%02d|%s', $n->formation?->priorite ?? 99, $n->nom_niveau))
+            ->values();
+
         $volumes = collect();
-        $totaux = ['bachelor' => ['effectif' => 0, 'nb_classe' => 0, 'volume_cours' => 0], 'master' => ['effectif' => 0, 'nb_classe' => 0, 'volume_cours' => 0]];
+        $totaux = [];
 
         if ($idEtablissement) {
             $volumes = VolumesFormations::query()
-                ->with('niveau')
+                ->with('niveau.formation')
                 ->where('id_etablissement', $idEtablissement)
                 ->get()
                 ->keyBy('id_niveau');
 
             foreach ($volumes as $volume) {
-                $idFormation = $volume->niveau?->id_formation;
-                $cle = in_array($idFormation, Formation::IDS_MASTER, true) ? 'master' : 'bachelor';
-                $totaux[$cle]['effectif'] += (int) $volume->effectif;
-                $totaux[$cle]['nb_classe'] += (int) $volume->nb_classe;
-                $totaux[$cle]['volume_cours'] += (float) $volume->volume_cours;
+                $cycle = $volume->niveau?->formation?->niveau ?: 'Sans cycle';
+                $totaux[$cycle] ??= ['effectif' => 0, 'nb_classe' => 0, 'volume_cours' => 0];
+                $totaux[$cycle]['effectif'] += (int) $volume->effectif;
+                $totaux[$cycle]['nb_classe'] += (int) $volume->nb_classe;
+                $totaux[$cycle]['volume_cours'] += (float) $volume->volume_cours;
             }
         }
 

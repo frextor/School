@@ -409,6 +409,9 @@
            ici plutôt que recopié page par page. */
         .form-page { max-width: 880px; margin: 0; }
         .form-page.is-wide { max-width: 1100px; }
+        /* Un formulaire qui porte un tableau : la borne de 620 px posée sur
+           `form` plus haut le rétrécissait jusqu'à couper des colonnes. */
+        .form-page.is-full { max-width: none; }
 
         .form-card { max-width: none; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
         .form-card + .form-card { margin-top: 14px; }
@@ -469,7 +472,7 @@
         .danger-zone { max-width: none; margin: 18px 0 0; }
 
         /* Fiche de consultation : une suite de libellé / valeur. */
-        .detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 2px 16px; padding: 4px 16px 16px; }
+        .detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2px 24px; padding: 4px 16px 16px; }
         .detail-line { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--border-soft); min-width: 0; }
         .detail-line > span:first-child { font-size: 12px; color: var(--muted); white-space: nowrap; }
         .detail-line > span:last-child { font-size: 13.5px; font-weight: 600; text-align: right; overflow-wrap: anywhere; }

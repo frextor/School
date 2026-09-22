@@ -3,23 +3,39 @@
 @section('title', 'Nouveau groupe')
 
 @section('content')
-    <a href="{{ route('referentiel.groupes.index') }}">&larr; Retour</a>
-    <h1>Nouveau groupe</h1>
+<div class="crumb">
+    <a href="{{ route('referentiel.groupes.index') }}">Groupes d'élèves</a>
+    <span class="sep">/</span>
+    <span class="current">Nouveau groupe</span>
+</div>
 
-    @if ($errors->any())
-        <div class="status" style="background:#ffecec;border-color:#f3b4b4">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
+@include('partials.erreurs')
+
+<div class="page-head">
+    <div>
+        <h1>Nouveau groupe</h1>
+        <p class="page-sub">Un regroupement transversal d'élèves : soutien, langue optionnelle, activité.</p>
+    </div>
+</div>
+
+<form method="post" action="{{ route('referentiel.groupes.store') }}" class="form-page">
+    @csrf
+
+    <section class="form-card">
+        <div class="form-head"><h2>Le groupe</h2></div>
+        <div class="form-grid">
+            <label class="field field-full">
+                <span>Nom du groupe</span>
+                <input type="text" name="nom_groupe" required placeholder="Soutien mathématiques, Anglais renforcé…"
+                       value="{{ old('nom_groupe') }}">
+                <small class="field-aide">Les élèves s'y rattachent depuis leur fiche.</small>
+            </label>
         </div>
-    @endif
+    </section>
 
-    <form method="post" action="{{ route('referentiel.groupes.store') }}">
-        @csrf
-        <label for="nom_groupe">Nom du groupe</label>
-        <input type="text" name="nom_groupe" id="nom_groupe" value="{{ old('nom_groupe') }}" required>
-        <p style="margin-top:1rem">
-            <button type="submit" class="btn">Créer</button>
-        </p>
-    </form>
+    <div class="form-actions">
+        <a href="{{ route('referentiel.groupes.index') }}" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn">Créer le groupe</button>
+    </div>
+</form>
 @endsection

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cours;
+use App\Models\Niveau;
 use App\Models\UniteEnseignement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,11 @@ class CoursController extends Controller
         $data = $request->validate([
             'code_cours' => ['required', 'string', 'max:100'],
             'nom_cours' => ['required', 'string'],
-            'id_unite_enseignement' => ['required', 'integer', 'exists:amos_unite_enseignement,id_unite_enseignement'],
+            // L'unite d'enseignement est un decoupage du superieur, ecarte du
+            // K-12 : la table est vide, et une regle `required|exists` rendait
+            // la creation d'une matiere impossible. Elle reste acceptee pour
+            // les installations qui s'en servent encore.
+            'id_unite_enseignement' => ['nullable', 'integer'],
             'annees' => ['array'],
             'annees.*' => ['integer'],
         ]);
@@ -57,12 +62,12 @@ class CoursController extends Controller
             $cours = Cours::create([
                 'code_cours' => $data['code_cours'],
                 'nom_cours' => $data['nom_cours'],
-                'id_unite_enseignement' => $data['id_unite_enseignement'],
+                'id_unite_enseignement' => $data['id_unite_enseignement'] ?? 0,
             ]);
 
             foreach ($data['annees'] ?? [] as $annee) {
                 $cours->annees()->create([
-                    'id_unite_enseignement' => $data['id_unite_enseignement'],
+                    'id_unite_enseignement' => $data['id_unite_enseignement'] ?? 0,
                     'annee' => $annee,
                 ]);
             }
@@ -82,6 +87,12 @@ class CoursController extends Controller
         return view('referentiel.cours.edit', [
             'cours' => $cours,
             'unites' => UniteEnseignement::orderBy('nom_unite_enseignement')->get(),
+            // Les niveaux qui l'enseignent, avec leur coefficient : c'est la
+            // que la matiere prend son sens en K-12, pas dans une UE.
+            'niveaux' => Niveau::with(['formation', 'matieres'])
+                ->whereHas('matieres', fn ($q) => $q->where('amos_cours.id_cours', $cours->id_cours))
+                ->get()
+                ->sortBy(fn ($n) => sprintf('%02d|%s', $n->formation?->priorite ?? 99, $n->nom_niveau)),
         ]);
     }
 
@@ -90,7 +101,11 @@ class CoursController extends Controller
         $data = $request->validate([
             'code_cours' => ['required', 'string', 'max:100'],
             'nom_cours' => ['required', 'string'],
-            'id_unite_enseignement' => ['required', 'integer', 'exists:amos_unite_enseignement,id_unite_enseignement'],
+            // L'unite d'enseignement est un decoupage du superieur, ecarte du
+            // K-12 : la table est vide, et une regle `required|exists` rendait
+            // la creation d'une matiere impossible. Elle reste acceptee pour
+            // les installations qui s'en servent encore.
+            'id_unite_enseignement' => ['nullable', 'integer'],
             'annees' => ['array'],
             'annees.*' => ['integer'],
         ]);
@@ -99,13 +114,13 @@ class CoursController extends Controller
             $cours->update([
                 'code_cours' => $data['code_cours'],
                 'nom_cours' => $data['nom_cours'],
-                'id_unite_enseignement' => $data['id_unite_enseignement'],
+                'id_unite_enseignement' => $data['id_unite_enseignement'] ?? 0,
             ]);
 
             $cours->annees()->delete();
             foreach ($data['annees'] ?? [] as $annee) {
                 $cours->annees()->create([
-                    'id_unite_enseignement' => $data['id_unite_enseignement'],
+                    'id_unite_enseignement' => $data['id_unite_enseignement'] ?? 0,
                     'annee' => $annee,
                 ]);
             }
