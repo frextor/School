@@ -71,6 +71,10 @@ class EvaluationController extends Controller
             'unites' => UniteEnseignement::orderBy('nom_unite_enseignement')->get(),
             'cours' => Cours::orderBy('nom_cours')->get(),
             'typesEvaluation' => SnTypeEvaluation::with('type')->get(),
+            // L'écran demandait d'écrire à la main l'identifiant numérique de
+            // la classe ou du groupe : il faut les listes pour en faire un choix.
+            'classes' => Classe::orderBy('classe')->get(),
+            'groupes' => GroupeEleve::orderBy('nom_groupe')->get(),
         ]);
     }
 

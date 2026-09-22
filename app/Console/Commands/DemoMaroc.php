@@ -458,7 +458,9 @@ class DemoMaroc extends Command
                         'id_referentiel' => $classe->id_classe, 'id_ue' => 0, 'id_matiere' => $matiere->id_cours, 'id_type' => 0,
                         'id_evaluation' => $evaluation->id_evaluation, 'eval_session' => 0, 'id_eleve' => $eleve->id_eleve,
                         'validation_sans_note' => 0, 'note' => (string) $note, 'publier_admin' => 1, 'publier_eleve' => 1,
-                        'date_saisie' => now(), 'session' => 0, 'referentiel' => 'classe',
+                        // `session` : 1 = épreuve normale, 2 = rattrapage, comme l'écrit
+                        // NoteController. La démo écrivait 0, hors convention.
+                        'date_saisie' => now(), 'session' => 1, 'referentiel' => 'classe',
                     ]);
                 }
             }

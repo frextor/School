@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Eleve;
 use App\Models\Evaluation;
 use App\Models\Note;
 use App\Models\NoteHistorique;
@@ -22,9 +23,35 @@ class NoteController extends Controller
 {
     public function index(Evaluation $evaluation): View
     {
-        $evaluation->load(['notes.eleve.contact', 'unite', 'matiere']);
+        $evaluation->load(['notes.eleve.contact', 'unite', 'matiere', 'campus']);
 
-        return view('notes.index', ['evaluation' => $evaluation]);
+        // L'écran ne listait que les élèves ayant déjà une note : sur une
+        // évaluation neuve, il n'affichait personne et aucune première note
+        // ne pouvait être saisie. La liste part donc de l'effectif visé.
+        $eleves = $this->effectif($evaluation);
+        $notesParEleve = $evaluation->notes->groupBy('id_eleve');
+
+        return view('notes.index', [
+            'evaluation' => $evaluation,
+            'eleves' => $eleves,
+            'notesParEleve' => $notesParEleve,
+        ]);
+    }
+
+    /** Les élèves de la classe ou du groupe visé par l'évaluation. */
+    private function effectif(Evaluation $evaluation)
+    {
+        $requete = $evaluation->referentiel === 'groupe'
+            ? Eleve::where('id_groupe', $evaluation->id_referentiel)
+            : Eleve::where('id_classe', $evaluation->id_referentiel);
+
+        return $requete
+            ->with('contact')
+            ->where('profil', Eleve::PROFIL_ELEVE)
+            ->where('visible', true)
+            ->get()
+            ->sortBy(fn (Eleve $e) => mb_strtolower(($e->contact?->nom ?? '').' '.($e->contact?->prenom ?? '')))
+            ->values();
     }
 
     /** Portage unifié de `update_note()` (sessions 1 et 2). */
