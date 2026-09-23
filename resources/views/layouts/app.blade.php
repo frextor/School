@@ -412,6 +412,9 @@
         /* Un formulaire qui porte un tableau : la borne de 620 px posée sur
            `form` plus haut le rétrécissait jusqu'à couper des colonnes. */
         .form-page.is-full { max-width: none; }
+        /* Même borne, même piège, pour un formulaire imbriqué dans une page
+           du système : il doit suivre la largeur de la page, pas 620 px. */
+        .form-page form { max-width: none; }
 
         .form-card { max-width: none; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
         .form-card + .form-card { margin-top: 14px; }
