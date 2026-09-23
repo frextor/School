@@ -140,6 +140,9 @@ class PlanningController extends Controller
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'cours' => Cours::orderBy('nom_cours')->get(),
             'classes' => Classe::orderBy('classe')->get(),
+            // `id_salle` est une colonne texte qui porte l'identifiant de la
+            // salle : l'écran demandait de le taper à la main.
+            'salles' => Salle::with('etablissement')->orderBy('nom_salle')->get(),
         ]);
     }
 
@@ -162,6 +165,9 @@ class PlanningController extends Controller
             'etablissements' => Etablissement::orderBy('nom_etablissement')->get(),
             'cours' => Cours::orderBy('nom_cours')->get(),
             'classes' => Classe::orderBy('classe')->get(),
+            // `id_salle` est une colonne texte qui porte l'identifiant de la
+            // salle : l'écran demandait de le taper à la main.
+            'salles' => Salle::with('etablissement')->orderBy('nom_salle')->get(),
         ]);
     }
 
